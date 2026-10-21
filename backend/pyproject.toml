@@ -1,0 +1,19 @@
+[project]
+name = "once-backend"
+version = "0.1.0"
+description = "ONCE — multimodal personal skill-memory backend (FastAPI + Strands + Bedrock)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+# Prompt 2 adds: boto3, strands-agents, mangum/deployment deps only after real AWS setup.

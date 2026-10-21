@@ -1,0 +1,39 @@
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv*
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# AWS local state (never commit temporary credentials)
+.aws/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Evidence images used during demo recordings (may contain personal data)
+backend/evidence/
+frontend/evidence/
+
+# Freebuff workspace bookkeeping (not part of the project)
+.freebuff/
