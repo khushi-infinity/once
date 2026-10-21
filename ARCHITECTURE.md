@@ -27,11 +27,14 @@ SkillStore interface (ownership + share-grant checks server-side)
    └─ live:  DynamoDB (ONCE_Skills / ONCE_Sessions) + S3 (private evidence)
                  │
                  ▼
-        Bedrock Runtime (Nova 2 Lite, Converse API)  — implemented (Prompt 2);
-                 only ever *proposes* structured content; a human confirms and
-                 Pydantic validates before persisting. ⚠ Blocked today by an
-                 AWS account-level restriction (AWS_EVIDENCE.md); the code
-                 path is complete and unblocks unchanged.
+   Inference dispatcher (app/services/inference.py) — never auto-switches
+                 ├─ bedrock: Nova 2 Lite Converse (primary; blocked at
+                 │   account level — AWS_EVIDENCE.md; adapter complete)
+                 ├─ gemini: labeled free-tier fallback by explicit choice
+                 └─ mock: deterministic-mock, always labeled via `engine`
+        Only ever *proposes* structured content; a human confirms and Pydantic
+                 validates before persisting. The Bedrock path unblocks with
+                 zero code change when the account restriction is lifted.
 ```
 
 ## Non-negotiable invariants (enforced in code)

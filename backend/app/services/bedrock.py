@@ -8,7 +8,6 @@ Every call records observability metadata: model id, wall duration, token
 usage (when the model returns it), and the AWS request ID — the judge-visible
 evidence of a genuine inference. Private images/prompts are never logged.
 """
-import base64
 import logging
 import time
 from dataclasses import dataclass
@@ -16,7 +15,7 @@ from dataclasses import dataclass
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.config import get_settings
 

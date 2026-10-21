@@ -24,7 +24,7 @@ from botocore.exceptions import ClientError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.config import get_settings  # noqa: E402
+from app.config import get_settings
 
 
 def main() -> int:

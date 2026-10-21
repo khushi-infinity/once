@@ -6,7 +6,7 @@ Authorization rule (server-side, non-negotiable):
 - sessions    learner-scoped, keyed by the requesting learner_id
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -19,14 +19,11 @@ from app.models.api import (
     VerifyStepResponse,
 )
 from app.models.core import (
-    ItemVerification,
     LearnerSession,
     LearnerStepState,
     Skill,
     SkillItem,
-    SkillSource,
     SkillStep,
-    SkillType,
     Verdict,
     utcnow,
 )
@@ -45,6 +42,24 @@ def create_skill(req: CreateSkillRequest) -> Skill:
             type=req.type,
             source=req.source,
             summary=req.summary,
+            items=[
+                SkillItem(
+                    name=item.name,
+                    required=item.required,
+                    aliases=item.aliases,
+                )
+                for item in (req.items or [])
+            ],
+            steps=[
+                SkillStep(
+                    order=step.order,
+                    instruction=step.instruction,
+                    target_element_id=step.target_element_id,
+                    screen=step.screen,
+                    expected_event=step.expected_event,
+                )
+                for step in (req.steps or [])
+            ],
         )
     )
 
@@ -163,7 +178,7 @@ def verify_step(session_id: str, learner_id: str, event: str, order: int) -> Ver
     else:
         verdict = Verdict.verified
         reason = "step completed"
-        state.verified_at = datetime.now(timezone.utc)
+        state.verified_at = datetime.now(UTC)
         state.status = "verified"
         # advance to next pending step (skipped steps may allow jumping ahead)
         pending_orders = sorted(

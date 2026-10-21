@@ -13,14 +13,14 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 from botocore.exceptions import ClientError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.config import get_settings  # noqa: E402
+from app.config import get_settings
 
 RESULTS: list[dict] = []
 
@@ -54,7 +54,7 @@ def main() -> int:
 
     # -- 2. DynamoDB skill roundtrip ------------------------------------------
     skill_id = f"smoke-{run}"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     item = {
         "skillId": skill_id,
         "ownerId": "smoke-test",
@@ -107,7 +107,7 @@ def main() -> int:
             try:
                 urllib.request.urlopen(public_url, timeout=5)
                 public = True
-            except Exception:
+            except Exception:  # noqa: BLE001 — any response = publicly reachable
                 public = False
             record("s3_private_roundtrip", ok and not public,
                    f"bucket={bucket} key={key} publicly_readable={public}")
@@ -117,12 +117,12 @@ def main() -> int:
             try:
                 session.client("s3", region_name=region).delete_object(Bucket=bucket, Key=key)
             except ClientError:
-                pass
+                pass  # best-effort cleanup
     else:
         record("s3_private_roundtrip", False, "S3_EVIDENCE_BUCKET not configured")
 
     # -- 4. Bedrock probe ---------------------------------------------------
-    from app.services.bedrock import BedrockResult, analyze_text
+    from app.services.bedrock import analyze_text
 
     try:
         result = analyze_text("Reply with exactly: BEDROCK_OK")
@@ -137,7 +137,7 @@ def main() -> int:
                 "aws_request_id": result.metadata.aws_request_id,
             }),
         )
-    except Exception as exc:  # reported truthfully, never faked
+    except Exception as exc:  # noqa: BLE001 — reported truthfully, never faked
         record("bedrock_inference", False, f"{type(exc).__name__}: {exc}")
 
     # -- cleanup test data ---------------------------------------------------

@@ -22,7 +22,7 @@ Last run: 2026-10-21, runtime identity `arn:aws:iam::552952091217:user/once-loca
 | 3 | Real DynamoDB write + read of a session record | smoke check `dynamodb_sessions_write_read` on table `ONCE_Sessions` (PK `sessionId`, GSI `skill-learner-index`) | **PASS** |
 | 4 | Private S3 evidence roundtrip | smoke check `s3_private_roundtrip` — upload + read back + **verifies the object is not publicly readable**; bucket has all four PublicAccessBlock switches on + default SSE-S3 + no bucket policy | **PASS** |
 | 5 | Live-mode store tests incl. authorization (share → learner reads → revoke → blocked → owner delete) | `APP_MODE=live AWS_PROFILE=once-local uv run pytest tests/test_live_store.py` | **PASS (2/2)** |
-| 6 | Real Bedrock inference | smoke check `bedrock_inference` (model id + duration + AWS request id) | **BLOCKED — account-level restriction, full record below** |
+| 6 | Real Bedrock inference | smoke check `bedrock_inference` (model id + duration + AWS request id) | **BLOCKED — account-level restriction, full record below**. Meanwhile `/api/teach/extract` can run on a **clearly-labeled free-tier fallback** (`INFERENCE_PROVIDER=gemini`, operator-set env var, never auto-selected; engine metadata in every API response) or on the labeled deterministic-mock parser in mock mode. |
 | 7 | Real agent + MCP tool calls | Phase 6 deliverable | pending |
 
 ## The Bedrock blocker (truthful record, root-caused 2026-10-21)

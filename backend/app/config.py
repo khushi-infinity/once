@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     # --- Backend -------------------------------------------------------------
     cors_origins: str = "http://localhost:3000"
 
+    # --- Inference provider ---------------------------------------------------
+    # "bedrock": Amazon Bedrock Runtime via Converse (primary; AWS account has
+    #   an active restriction on model inference — see AWS_EVIDENCE.md).
+    # "gemini": free-tier Google AI Studio fallback, used ONLY by explicit
+    #   choice while the Bedrock restriction persists (never auto-selected,
+    #   always labeled in API responses and UI).
+    inference_provider: str = "bedrock"
+    gemini_api_key: str = ""
+    gemini_model_id: str = "gemini-2.5-flash-lite"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property

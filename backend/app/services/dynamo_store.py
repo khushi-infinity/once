@@ -3,7 +3,6 @@
 Same interface as the in-memory store; no scans — queries only. Adds a GSI on
 owner for list-by-owner without full-table reads.
 """
-import uuid
 from threading import Lock
 from typing import Any
 
@@ -11,7 +10,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from app.config import get_settings
-from app.models.core import LearnerSession, Skill, ShareGrant, utcnow
+from app.models.core import LearnerSession, ShareGrant, Skill, utcnow
 
 Lockable = Lock
 

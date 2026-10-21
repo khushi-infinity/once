@@ -32,7 +32,7 @@ cd backend && uv sync && uv run uvicorn app.main:app --port 8000
 cd frontend && npm install && npm run dev
 
 # 3. Tests
-cd backend && uv run pytest            # backend: 5 endpoint/concurrency tests
+cd backend && uv run pytest            # backend: 11 tests (7 live, +2 store-roundtrip live-only)
 cd frontend && npm run lint && npm run build
 ```
 
@@ -51,7 +51,8 @@ cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_l
 | Working now | Not yet (planned) |
 | --- | --- |
 | FastAPI backend + health, typed Pydantic models | Real Amazon Bedrock inference 🔶 **blocked by an AWS account-level restriction** (fully root-caused and documented in [AWS_EVIDENCE.md](AWS_EVIDENCE.md); adapter code is ready and unblocks without changes) |
-| Skill create/read/update/delete with **server-side ownership checks** | Voice/photo/camera teaching (Prompt 3) |
+| Skill create/read/update/delete with **server-side ownership checks** | Voice/photo capture UX (Prompt 3) |
+| **Teach extraction API** (`/api/teach/extract`): labeled engine per run — Bedrock / labeled free-tier fallback / deterministic-mock | Recall & "what am I missing" UX polish (Prompt 4) |
 | Sharing grants + revocation, learner-scoped sessions, versioned updates | Recall & "what am I missing" UX polish (Prompt 4) |
 | Learner-session progression with real event verification | Browser-workflow guided teaching (Prompt 5) |
 | **Live AWS mode**: skills + sessions persist in real DynamoDB (GSI-backed), evidence in fully-private S3 — verified with a least-privilege IAM identity | Strands agent orchestration + MCP server (Prompt 6) |

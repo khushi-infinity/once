@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import health, skills
+from app.routers import health, skills, teach
 
 app = FastAPI(title="ONCE", description="Teach once. Let it teach anyone, forever.")
 
@@ -18,3 +18,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(skills.router)
+app.include_router(teach.router)

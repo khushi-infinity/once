@@ -4,15 +4,15 @@ These mirror the skill-record structure in PRODUCT_SPEC.md. DynamoDB storage
 (Prompt 2) serializes/deserializes exactly these types — the models are the
 single source of truth.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class SkillType(str, Enum):
