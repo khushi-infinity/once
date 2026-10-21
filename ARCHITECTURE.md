@@ -9,7 +9,7 @@ Three user-facing destinations: **Teach** (home), **Ask** (recall), **My Skills*
 | **Skill model** | Typed Pydantic records ([backend/app/models/core.py](backend/app/models/core.py)): `Skill`, `SkillItem` (aliases + tri-state packing verification), `SkillStep` (ordered, with stable `target_element_id` + `expected_event`), `LearnerSession` (per-learner, separate from taught skill), `ShareGrant` |
 | **Skill store** | Persistence interface with **server-side ownership checks** on every operation ([backend/app/services/skill_store.py](backend/app/services/skill_store.py)); in-memory (mock) and **real DynamoDB (live)** behind the same interface |
 | **Session engine** | Learner progress: start/resume/verify endpoints where a wrong event provably does not advance ([backend/app/routers/skills.py](backend/app/routers/skills.py)) |
-| **Agents (Observer/Binder/Memory/Coach/Verifier/Coordinator)** | Land in Prompt 6 on Strands + Bedrock; deterministic logic (auth, comparison, progression) stays plain Python — LLMs never own authorization or persistence |
+| **Agents (Observer/Binder/Memory/Coach/Verifier/Coordinator)** | Land in Prompt 6 on Strands agents with the labeled free-tier inference provider; deterministic logic (auth, comparison, progression) stays plain Python — LLMs never own authorization or persistence |
 | **Frontend** | Next.js App Router; dev proxy rewrites `/api/*` and `/health` to the backend (same-origin, no CORS friction) |
 
 ## Data flow (rightarrow rule: one source of truth)
@@ -27,14 +27,11 @@ SkillStore interface (ownership + share-grant checks server-side)
    └─ live:  DynamoDB (ONCE_Skills / ONCE_Sessions) + S3 (private evidence)
                  │
                  ▼
-   Inference dispatcher (app/services/inference.py) — never auto-switches
-                 ├─ bedrock: Nova 2 Lite Converse (primary; blocked at
-                 │   account level — AWS_EVIDENCE.md; adapter complete)
-                 ├─ gemini: labeled free-tier fallback by explicit choice
-                 └─ mock: deterministic-mock, always labeled via `engine`
-        Only ever *proposes* structured content; a human confirms and Pydantic
-                 validates before persisting. The Bedrock path unblocks with
-                 zero code change when the account restriction is lifted.
+   AI inference (app/services/inference.py) — Google AI Studio free tier,
+                 labeled `gemini` in every response; never claims AWS AI.
+                 Only ever *proposes* structured content; a human confirms and
+                 Pydantic validates before persisting. Deterministic-mock is
+                 used in offline tests and is labeled too.
 ```
 
 ## Non-negotiable invariants (enforced in code)

@@ -42,10 +42,12 @@ account built Oct 2026 (account `552952091217`, region us-east-1 primary).
   settings"* — resolution is *"contact AWS Support"*.
 - **Impact:** ONCE's core teach-by-voice/photo AI pipeline has no inference
   provider today. Storage, evidence and identity all work; only inference is gated.
-- **Worked around?** No legitimate workaround exists in-account. We file a
-  support case and keep the Bedrock adapter code-path ready (it needs
-  exactly zero code changes once access is granted) while documenting the
-  blocker truthfully rather than faking success.
+- **Worked around?** No in-account fix exists. Decision: remove Bedrock from
+  the product entirely rather than ship a permanently blocked dependency, and
+  run inference on a clearly-labeled free-tier provider (API `engine`
+  metadata, `/health`, UI). The AWS story stays on the verified data layer
+  (DynamoDB, S3, IAM). This entry is kept because it is genuine Amazon
+  developer-tooling feedback — not a product claim.
 - **Suggestion to AWS:** expose the restriction **in the Bedrock console**
   (banner: "your account has a security restriction: quota 0") and/or an API:
   a single `GetModelAccessStatus` read that names the cause and the next step.

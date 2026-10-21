@@ -68,7 +68,7 @@ class TeachExtractResponse(BaseModel):
     steps: list[StepRow] = Field(default_factory=list)
     ambiguities: list[str] = Field(default_factory=list)
     # What produced this draft — surfaced so the teacher (and judges) can see
-    # whether AI extraction, Bedrock, or the labeled deterministic mock ran.
+    # whether real AI extraction or the labeled deterministic mock ran.
     engine: DraftEngine
 
 

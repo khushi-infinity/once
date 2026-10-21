@@ -8,9 +8,7 @@
 ## Step A — account safety (human)
 
 1. AWS Account → enable **MFA** on the root user.
-2. Billing → **verify a valid payment method is attached** (documented Bedrock
-   model-access prerequisite — see FRICTION_LOG entry 1) and check which account
-   plan you are on (a "Free plan" account restricts some services).
+2. Billing → verify a **payment method** and check which account plan you are on.
 3. Billing → create a small **AWS Budget with email alerts** (target ≤ $10).
 4. Region for development: **us-east-1**.
 
@@ -23,15 +21,14 @@ aws login                 # browser-based, short-term credentials (auto-rotate)
 aws sts get-caller-identity --profile once
 ```
 
-**Important identity lesson (discovered 2026-10-21):** `aws login` on a personal
-account attaches to the **root identity**, and root sessions **cannot** `sts:AssumeRole`
-("Roles may not be assumed by root accounts"). So ONCE never runs its app code with
-that session. The login session ("once" profile) is used for one-time admin work only:
-provisioning (`scripts/provision_aws.py`), IAM setup, and this session's account checks.
+**Identity lesson (2026-10-21):** `aws login` on a personal account attaches to the
+**root identity**, and root sessions **cannot** `sts:AssumeRole` ("Roles may not be
+assumed by root accounts"). The login session ("once" profile) is therefore used for
+one-time admin work only: provisioning, IAM setup. The app itself never runs as root.
 
-## Step C — least-privilege runtime identity (one-time admin via the login session)
+## Step C — least-privilege runtime identity (one-time admin)
 
-The backend runs as a scoped IAM user `once-local` — never root:
+The backend runs as a scoped IAM user `once-local`:
 
 ```bash
 aws iam create-user --profile once --user-name once-local --tags Key=project,Value=once
@@ -39,23 +36,21 @@ aws iam create-user --profile once --user-name once-local --tags Key=project,Val
 aws iam put-user-policy --profile once --user-name once-local --policy-name once-runtime \
   --policy-document file://backend/scripts/once-runtime-iam-policy.json
 
-aws iam create-access-key --profile once --user-name once-local \
-  --output json | aws configure set --profile once-local \
-  aws_access_key_id /dev/stdin   # or copy into ~/.aws/credentials manually (never into this repo)
+aws iam create-access-key --profile once --user-name once-local --output json
+# put the two values into ~/.aws/credentials under [once-local]; never into this repo
 ```
 
-The exact policy (also in [backend/scripts/once-runtime-iam-policy.json](backend/scripts/once-runtime-iam-policy.json)):
+The exact policy is committed at
+[backend/scripts/once-runtime-iam-policy.json](backend/scripts/once-runtime-iam-policy.json):
 
 | Statement | Scope |
 | --- | --- |
-| Bedrock | `bedrock:Converse/InvokeModel*` on `foundation-model/amazon.nova-*` + `inference-profile/us.amazon.nova-*` (Nova family only) |
 | DynamoDB | item-level `Get/Put/Update/Delete/Query/ConditionCheck` on `ONCE_Skills`, `ONCE_Sessions` + their indexes only |
 | S3 | `GetObject/PutObject/DeleteObject` on `s3://once-evidence-<account>` objects only |
 
-Deliberately **not** grantable root powers: no `Describe*`/`List*` on tables
-(required only for the one-time provisioning script), no bucket-level deletes,
-no IAM, no org. Verify: `aws sts get-caller-identity --profile once-local`
-should show `...:user/once-local`.
+No IAM/admin/bucket-level powers; no table `Describe*` (needed only by the one-time
+provisioning script, run with the admin session). Verify:
+`aws sts get-caller-identity --profile once-local` → `...:user/once-local`.
 
 ## Step D — provision infrastructure (idempotent)
 
@@ -68,24 +63,18 @@ Creates (checking-before-creating): DynamoDB `ONCE_Skills` (PK `skillId`, GSI
 `skill-learner-index`, on-demand), and the private evidence bucket (all four
 public-access blocks, default SSE-S3, no bucket policy).
 
-## Step E — Bedrock model access (human verifies in console)
+## Step E — AI inference key (free tier)
 
-- Console → Amazon Bedrock → *Model catalog* → **Amazon Nova 2 Lite** → run one
-  text + one image prompt in the playground.
-- If the playground or `smoke_live.py` fails with
-  `ValidationException: Operation not allowed`, your account has the documented
-  **account-level security restriction** — invisible in the console, not
-  fixable via IAM/model-access. Path: AWS Support/Sales. Full root-cause chain:
-  [AWS_EVIDENCE.md](AWS_EVIDENCE.md), [FRICTION_LOG.md](FRICTION_LOG.md) entry 1.
-- Check the tell-tale: Service Quotas → **Bedrock** — all model-inference quotas
-  showing `0` is this restriction; non-zero means the model needs normal
-  one-time access setup.
+Bedrock is not used (see [AWS_EVIDENCE.md](AWS_EVIDENCE.md#ai-inference-what-is-not-aws-stated-plainly)).
+
+1. Open **https://aistudio.google.com** → *Get API key* → create a free key.
+2. Put it in `backend/.env`: `GEMINI_API_KEY=...` (never commit it).
+3. Without the key, AI extraction returns an honest `503`; skills/recall still work.
 
 ## Cost posture
 
-- **No** EC2, SageMaker, AgentCore, vector DBs unless a proven need arises.
-- DynamoDB **on-demand** (smoke/pytest write+delete a handful of tiny items);
-  S3 private bucket; Bedrock is metered when unlocked — retries are bounded
-  (2) and prompts short.
-- Cleanup: smoke tests delete everything they created; nothing persistent is
-  left behind by test runs.
+- **No** Bedrock, EC2, SageMaker, AgentCore or vector DBs are used.
+- DynamoDB **on-demand** (tests write+delete a handful of tiny items); S3 private
+  bucket for consented evidence only.
+- AI inference runs on the provider's free tier; no paid AI API is required.
+- Cleanup: smoke tests delete everything they created.

@@ -5,9 +5,7 @@ only the confirmed draft reaches POST /api/skills for persistence. AI never
 writes to storage directly.
 
 Modes, chosen explicitly (never auto-substituted):
-- live + bedrock: real Bedrock Converse extraction (blocked at account level
-  today — see AWS_EVIDENCE.md; errors are surfaced truthfully);
-- live + gemini: labeled free-tier fallback chosen explicitly by the operator;
+- live: real free-tier Gemini extraction; errors are surfaced truthfully;
 - mock: deterministic non-AI parser, clearly labeled as such in the response.
 """
 import logging
@@ -62,10 +60,11 @@ def _deterministic_extract(transcript: str, skill_type: str) -> TeachExtractResp
 
 def _require_ai_configured() -> None:
     settings = get_settings()
-    if settings.inference_provider == "gemini" and not settings.gemini_api_key:
+    if not settings.gemini_api_key:
         raise HTTPException(
             status_code=503,
-            detail="INFERENCE_PROVIDER=gemini but GEMINI_API_KEY is not configured.",
+            detail="AI extraction is not configured: set GEMINI_API_KEY in backend/.env "
+            "(free key at aistudio.google.com). Stored skills and recall still work.",
         )
 
 

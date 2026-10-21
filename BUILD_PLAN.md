@@ -5,11 +5,11 @@ Working sequence; each phase has a done-criterion checked as real, not aspiratio
 | # | Phase | Done criterion | State |
 | --- | --- | --- | --- |
 | 1 | Foundation: specs, models, backend, frontend, tests | App runs locally; tests pass; docs exist | ✅ **done** |
-| 2 | Real AWS: Bedrock adapter, DynamoDB stores, S3 evidence, IAM-fenced identity, smoke script | One real Bedrock call, one real DB roundtrip, one private S3 roundtrip acknowledged | ✅ **done, 1 exception:** storage + evidence + scoped identity all verified (`smoke_live` 4/5, `test_live_store` 2/2 as scoped identity); **Bedrock inference is blocked by an AWS account-level security restriction** — root-caused with AWS-doc citations ([AWS_EVIDENCE.md](AWS_EVIDENCE.md)); support case is the only resolution path; adapter unblocks with zero code change |
-| 3 | Teach: voice/text/photo/camera → draft → confirm → persisted skill | 6 arbitrary items taught→saved→reloaded match; image yields real analysis; no hardcoding | ⏳ next — start with the Bedrock-independent parts (draft→confirm→persist works against live DynamoDB today) |
+| 2 | Real AWS: DynamoDB stores, S3 evidence, IAM-fenced identity, smoke script; AI inference via labeled free-tier provider | One real DB roundtrip, one private S3 roundtrip acknowledged | ✅ **done** — storage + evidence + scoped identity verified (`smoke_live` **4/4**, live pytest **11/11** as `once-local`). Bedrock removed from the product after the AWS account-level restriction made inference impossible; AI runs on a labeled free-tier provider |
+| 3 | Teach: voice/text/photo/camera → draft → confirm → persisted skill | 6 arbitrary items taught→saved→reloaded match; image yields real analysis; no hardcoding | ⏳ next — extraction API + confirmed-item persistence already live; capture UI next |
 | 4 | Recall & verification: memory retrieval, missing-item comparison, sessions, sharing UX | Phrase query "going to an event…" returns stored list + unconfirmed items | ⬜ |
 | 5 | Browser teaching & guided learning (PhotoShare demo app) | Two separate sessions prove teach→learner handoff; wrong click blocks | ⬜ |
-| 6 | Agent orchestration (Strands+Bedrock) + MCP server (Streamable HTTP, spec ≥2025-11-25) | Independent MCP client exercises tools; trace view shows real calls | ⬜ |
+| 6 | Agent orchestration (Strands + labeled free-tier inference) + MCP server (Streamable HTTP, spec ≥2025-11-25) | Independent MCP client exercises tools; trace view shows real calls | ⬜ |
 | 7 | UI polish pass | Type check + build clean; flows tested desktop+mobile; no dead buttons | ⬜ |
 | 8 | Release: e2e audit, deploy, evidence docs, friction log, demo video, submit | README/AWS_EVIDENCE/TESTING complete; judge checklist passes | ⬜ |
 
@@ -25,7 +25,7 @@ Explicitly unfinished (by design, next prompt): all AWS wiring, voice, photos, b
 
 ## Risks being tracked
 
-- Nova 2 Lite availability/entitlement in us-east-1 unknown until real probe (Phase 2 starts there).
+- Free-tier inference can rate-limit (429) or be unavailable; the API surfaces that honestly (502/503) instead of substituting a fake result.
 - `aws login` needs the user's own browser + MFA; agent cannot and must not do this.
 - MCP protocol version support must be *verified*, in writing, before claiming compliance.
 - AWS spend: on-demand DynamoDB + minimal S3; no EC2; budget alert before Phase 2.

@@ -16,11 +16,7 @@ def health() -> HealthResponse:
         app_mode=settings.app_mode,
         version=VERSION,
         inference=InferenceStatus(
-            provider=settings.inference_provider,
-            model=(
-                settings.bedrock_model_id
-                if settings.inference_provider == "bedrock"
-                else settings.gemini_model_id
-            ),
+            provider="gemini",
+            model=settings.gemini_model_id,
         ),
     )

@@ -58,7 +58,7 @@ def test_live_extraction_never_uses_deterministic_parser(monkeypatch):
         body = r.json()
         engine = (body.get("engine") or {}).get("provider", "")
         assert r.status_code == 200 or r.status_code in (502, 503)
-        # With Bedrock blocked (or any provider failure) we surface the real
+        # With the AI provider unconfigured or failing we surface the real
         # error — never a deterministic result pretending to be AI.
         assert engine != "deterministic-mock"
         if r.status_code == 502:

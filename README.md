@@ -50,26 +50,32 @@ cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_l
 
 | Working now | Not yet (planned) |
 | --- | --- |
-| FastAPI backend + health, typed Pydantic models | Real Amazon Bedrock inference 🔶 **blocked by an AWS account-level restriction** (fully root-caused and documented in [AWS_EVIDENCE.md](AWS_EVIDENCE.md); adapter code is ready and unblocks without changes) |
-| Skill create/read/update/delete with **server-side ownership checks** | Voice/photo capture UX (Prompt 3) |
-| **Teach extraction API** (`/api/teach/extract`): labeled engine per run — Bedrock / labeled free-tier fallback / deterministic-mock | Recall & "what am I missing" UX polish (Prompt 4) |
-| Sharing grants + revocation, learner-scoped sessions, versioned updates | Recall & "what am I missing" UX polish (Prompt 4) |
-| Learner-session progression with real event verification | Browser-workflow guided teaching (Prompt 5) |
-| **Live AWS mode**: skills + sessions persist in real DynamoDB (GSI-backed), evidence in fully-private S3 — verified with a least-privilege IAM identity | Strands agent orchestration + MCP server (Prompt 6) |
-| Idempotent infra provisioning script; smoke test: 4/5 live proofs pass | Deployment + demo video (Prompt 8) |
+| FastAPI backend + health, typed Pydantic models | Voice/photo capture UX (Prompt 3) |
+| Skill create/read/update/delete with **server-side ownership checks**; sharing grants + revocation; versioned updates | Recall & "what am I missing" UX (Prompt 4) |
+| Learner-session progression with **real event verification** (wrong event provably does not advance) | Browser-workflow guided teaching (Prompt 5) |
+| **Teach extraction API** (`/api/teach/extract`): transcript → validated draft → teacher confirms → persisted; engine labeled per response (`gemini` or deterministic-mock) | Agent orchestration + MCP server (Prompt 6) |
+| **Live AWS mode**: skills + sessions in real DynamoDB (GSI-backed), consented evidence in fully-private S3 — verified with a **least-privilege IAM identity** | Deployment + demo video (Prompt 8) |
+| Idempotent infra provisioning; smoke test **4/4 live proofs**; 11 backend tests | — |
 
 `APP_MODE=mock` uses in-memory storage so the full flow runs with zero cloud
 dependencies (tests default to this). `APP_MODE=live` makes every AWS call real
 and surfaces failures as errors — never substitutes them, never silently fakes.
 
+**AI inference** runs on Google AI Studio's free tier and is labeled as such in
+every API response and screen; ONCE does not claim AWS AI usage. **AWS usage**
+is the verified data layer: DynamoDB, S3 and least-privilege IAM (see
+[AWS_EVIDENCE.md](AWS_EVIDENCE.md)).
+
 ## AWS
 
 Setup steps live in [AWS_SETUP.md](AWS_SETUP.md) (account, `aws login`, the
 least-privilege `once-local` runtime identity, idempotent provisioning) and
-runtime verification evidence in [AWS_EVIDENCE.md](AWS_EVIDENCE.md). Tooling
-friction we hit — including the Bedrock account-level blocker — is documented in
-[FRICTION_LOG.md](FRICTION_LOG.md). Credentials come from the AWS credential
-provider chain (`aws login`); no keys are ever committed or placed in frontend code.
+runtime verification evidence in [AWS_EVIDENCE.md](AWS_EVIDENCE.md). AWS usage is
+the data layer — DynamoDB, S3, IAM — each with a reproducible check. AI
+inference is a free-tier non-AWS provider, labeled in the product; why that
+decision was made is documented honestly in [FRICTION_LOG.md](FRICTION_LOG.md).
+Credentials come from the AWS credential provider chain; no keys are ever
+committed or placed in frontend code.
 
 ## License
 
