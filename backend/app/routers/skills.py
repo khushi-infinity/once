@@ -5,9 +5,6 @@ Authorization rule (server-side, non-negotiable):
 - UPDATE/share/DELETE  owner only
 - sessions    learner-scoped, keyed by the requesting learner_id
 """
-import uuid
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.api import (
@@ -18,15 +15,8 @@ from app.models.api import (
     UpdateSkillRequest,
     VerifyStepResponse,
 )
-from app.models.core import (
-    LearnerSession,
-    LearnerStepState,
-    Skill,
-    SkillItem,
-    SkillStep,
-    Verdict,
-    utcnow,
-)
+from app.models.core import Skill, SkillItem, SkillStep, utcnow
+from app.services import learning
 from app.services.skill_store import get_store, new_skill_id
 
 router = APIRouter(prefix="/api", tags=["skills"])
@@ -117,103 +107,36 @@ def share_skill(skill_id: str, owner_id: str, learner_id: str, revoke: bool = Fa
 
 
 # ---------------------------------------------------------------------------
-# Learner sessions (Coach/Verifier support; Coach logic itself lands with
-# agent orchestration in Prompt 6 — these endpoints implement the stateful
-# progression mechanically so guidance works today).
+# Learner sessions (mechanical progression; logic shared with the MCP server)
 # ---------------------------------------------------------------------------
-
 @router.post("/sessions", response_model=NextStepResponse, status_code=status.HTTP_201_CREATED)
 def start_session(req: StartSessionRequest) -> NextStepResponse:
-    store = get_store()
-    skill = store.get_skill(req.skill_id, req.learner_id)
-    if skill is None:
-        raise HTTPException(status_code=404, detail="skill not found or not accessible")
-    open_sessions = [
-        s for s in store.list_sessions_for_skill(req.skill_id, req.learner_id)
-        if s.completed_at is None
-    ]
-    session = open_sessions[-1] if open_sessions else LearnerSession(
-        session_id=uuid.uuid4().hex[:12],
-        skill_id=skill.skill_id,
-        skill_version=skill.version,
-        learner_id=req.learner_id,
-        step_states=[
-            LearnerStepState(step_order=i) for i in range(len(skill.steps))
-        ],
-    )
-    store.save_session(session)
-    return _next_step_response(store, session)
+    try:
+        return learning.start_session(req.skill_id, req.learner_id)
+    except learning.LearningError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/sessions/{session_id}/next", response_model=NextStepResponse)
 def next_step(session_id: str, learner_id: str) -> NextStepResponse:
-    store = get_store()
-    session = _require_session(store, session_id, learner_id)
-    return _next_step_response(store, session)
+    try:
+        return learning.get_next_step(session_id, learner_id)
+    except learning.LearningError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.post("/sessions/{session_id}/verify", response_model=VerifyStepResponse)
-def verify_step(session_id: str, learner_id: str, event: str, order: int) -> VerifyStepResponse:
-    """Mechanical verifier: the learner's reported event must equal the step's
-    expected_event, and on the right step. Multimodal verification arrives in
-    Prompts 4–6; fabrication of results is never permitted.
+def verify_step(
+    session_id: str,
+    learner_id: str,
+    event: str,
+    order: int,
+    element_id: str | None = None,
+) -> VerifyStepResponse:
+    """The learner's event must match the step, and — for browser workflows —
+    the recorded DOM element. A mismatch never advances the session.
     """
-    store = get_store()
-    session = _require_session(store, session_id, learner_id)
-    skill = store.get_skill(session.skill_id, learner_id)
-    if skill is None:
-        raise HTTPException(status_code=404, detail="skill disappeared mid-session")
-    state = next((s for s in session.step_states if s.step_order == order), None)
-    step = next((s for s in skill.steps if s.order == order), None)
-    if state is None or step is None:
-        raise HTTPException(status_code=400, detail="unknown step")
-    order_sorted = sorted(s.order for s in skill.steps)
-    current = session.current_step
-    if order_sorted and order != current:
-        verdict = Verdict.mismatch
-        reason = f"expected step {current}, got step {order}"
-    elif step.expected_event and event != step.expected_event:
-        verdict = Verdict.mismatch
-        reason = f"expected '{step.expected_event}', got '{event}'"
-    else:
-        verdict = Verdict.verified
-        reason = "step completed"
-        state.verified_at = datetime.now(UTC)
-        state.status = "verified"
-        # advance to next pending step (skipped steps may allow jumping ahead)
-        pending_orders = sorted(
-            s.step_order for s in session.step_states if s.status == "pending"
-        )
-        session.current_step = pending_orders[0] if pending_orders else order
-        if not pending_orders:
-            session.completed_at = utcnow()
-        store.save_session(session)
-    return VerifyStepResponse(verdict=verdict, reason=reason, advanced=verdict == Verdict.verified)
-
-
-def _require_session(store, session_id: str, learner_id: str) -> LearnerSession:
-    session = store.get_session(session_id)
-    if session is None or session.learner_id != learner_id:
-        raise HTTPException(status_code=404, detail="session not found")
-    return session
-
-
-def _next_step_response(store, session: LearnerSession) -> NextStepResponse:
-    skill = store.get_skill(session.skill_id, session.learner_id)
-    if skill is None:
-        raise HTTPException(status_code=404, detail="skill not accessible")
-    if session.completed_at is not None:
-        return NextStepResponse(session_id=session.session_id, done=True)
-    step = next((s for s in skill.steps if s.order == session.current_step), None)
-    if step is None:
-        order_sorted = sorted(s.order for s in skill.steps)
-        if not order_sorted:
-            return NextStepResponse(session_id=session.session_id, done=True)
-        step = next((s for s in skill.steps if s.order == order_sorted[0]), None)
-    return NextStepResponse(
-        session_id=session.session_id,
-        step_order=step.order if step else None,
-        instruction=step.instruction if step else None,
-        screen=step.screen,
-        target_element_id=step.target_element_id,
-    )
+    try:
+        return learning.verify_step(session_id, learner_id, event, order, element_id)
+    except learning.LearningError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

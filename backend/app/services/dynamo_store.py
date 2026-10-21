@@ -34,6 +34,7 @@ class DynamoSkillStore:
         settings = get_settings()
         self._skills = res.Table(settings.dynamodb_skills_table)
         self._sessions = res.Table(settings.dynamodb_sessions_table)
+        self._grants = res.Table(settings.dynamodb_grants_table)
 
     # -- skills ---------------------------------------------------------------
     def create_skill(self, skill: Skill) -> Skill:
@@ -74,10 +75,16 @@ class DynamoSkillStore:
                 item.pop("skillId", None)
                 s = Skill.model_validate(item)
                 by_id[s.skill_id] = s
-        # shared-to-learner reaches here via the share-grants field on the
-        # owning record; the Memory agent (Prompt 4/6) adds a grants GSI for
-        # learner-side listing. Today, shared skills surface through teach UI
-        # or MCP lookup by id with the learner check done on read.
+        # shared-to-learner: one grant row per (learner, skill) keeps listing
+        # query-only — no scan of the whole skills table.
+        grants = self._grants.query(
+            KeyConditionExpression=Key("learnerId").eq(reader_id),
+            ConsistentRead=True,
+        ).get("Items", [])
+        for grant in grants:
+            shared = self.get_skill(str(grant["skillId"]), reader_id)
+            if shared is not None:
+                by_id[shared.skill_id] = shared
         return sorted(by_id.values(), key=lambda s: s.created_at)
 
     def delete_skill(self, skill_id: str, owner_id: str) -> bool:
@@ -104,6 +111,7 @@ class DynamoSkillStore:
         if revoke:
             if existing:
                 existing.revoked = True
+            self._grants.delete_item(Key={"learnerId": learner_id, "skillId": skill_id})
         else:
             if existing:
                 existing.revoked = False
@@ -111,6 +119,14 @@ class DynamoSkillStore:
             else:
                 skill.share_grants.append(ShareGrant(learner_id=learner_id, granted_by=owner_id))
             skill.visibility = "shared"
+            self._grants.put_item(
+                Item={
+                    "learnerId": learner_id,
+                    "skillId": skill_id,
+                    "grantedBy": owner_id,
+                    "grantedAt": now.isoformat(),
+                }
+            )
         self._update_skill(skill)
         return skill
 

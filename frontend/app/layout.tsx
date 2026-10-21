@@ -36,13 +36,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <ul className="flex items-center gap-6 text-sm text-muted">
               <li className="font-medium text-foreground">Teach</li>
               <li>
-                <Link href="/ask" className="hover:text-foreground">
-                  Ask
+                <Link href="/recall" className="hover:text-foreground">
+                  Recall
                 </Link>
               </li>
               <li>
                 <Link href="/skills" className="hover:text-foreground">
                   My Skills
+                </Link>
+              </li>
+              <li>
+                <Link href="/demo/photoshare" className="hover:text-foreground">
+                  Demo
                 </Link>
               </li>
             </ul>

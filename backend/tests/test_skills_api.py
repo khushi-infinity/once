@@ -53,11 +53,15 @@ def test_share_and_learner_access():
     # alice grants; bob can now read but still cannot delete
     assert client.post(f"/api/skills/{sid}/share", params={"owner_id": owner, "learner_id": learner}).status_code == 200
     assert client.get(f"/api/skills/{sid}", params={"reader_id": learner}).status_code == 200
+    listed = client.get("/api/skills", params={"reader_id": learner}).json()["skills"]
+    assert any(s["skill_id"] == sid for s in listed), "shared skill must appear in learner's list"
     assert client.delete(f"/api/skills/{sid}", params={"owner_id": learner}).status_code == 404
 
     # revoke; access lost
     client.post(f"/api/skills/{sid}/share", params={"owner_id": owner, "learner_id": learner, "revoke": "true"})
     assert client.get(f"/api/skills/{sid}", params={"reader_id": learner}).status_code == 404
+    listed = client.get("/api/skills", params={"reader_id": learner}).json()["skills"]
+    assert all(s["skill_id"] != sid for s in listed), "revoked skill must disappear from learner's list"
 
 
 def test_learner_session_progression_real_verification():
@@ -90,14 +94,31 @@ def test_learner_session_progression_real_verification():
     assert wrong.json()["verdict"] == "mismatch"
     assert wrong.json()["advanced"] is False
 
+    # Right event, wrong DOM element must NOT advance either.
+    wrong_element = client.post(
+        f"/api/sessions/{session_id}/verify",
+        params={"learner_id": learner, "event": "click", "order": 0, "element_id": "attach-btn"},
+    )
+    assert wrong_element.json()["verdict"] == "mismatch"
+    assert wrong_element.json()["advanced"] is False
+
     # Session persists across requests (resume behavior).
     nxt = client.get(f"/api/sessions/{session_id}/next", params={"learner_id": learner}).json()
     assert nxt["step_order"] == 0
 
     # Correct sequence advances.
-    for event, order in [("click", 0), ("click", 1), ("file_selected", 2), ("message_sent", 3)]:
-        v = client.post(f"/api/sessions/{session_id}/verify", params={"learner_id": learner, "event": event, "order": order})
-        assert v.json()["verdict"] == "verified", (event, order, v.text)
+    checks = [
+        {"event": "click", "order": 0, "element_id": "contact-ravi"},
+        {"event": "click", "order": 1, "element_id": "attach-btn"},
+        {"event": "file_selected", "order": 2},
+        {"event": "message_sent", "order": 3},
+    ]
+    for params in checks:
+        v = client.post(
+            f"/api/sessions/{session_id}/verify",
+            params={"learner_id": learner, **params},
+        )
+        assert v.json()["verdict"] == "verified", (params, v.text)
 
     assert client.get(f"/api/sessions/{session_id}/next", params={"learner_id": learner}).json()["done"] is True
 
@@ -121,3 +142,23 @@ def test_update_bumps_version_without_destroying_original():
     assert persisted["version"] == 2
     assert persisted["items"][0]["name"] == "Charger"
     assert persisted["title"] == "Bag v2"
+
+
+def test_six_arbitrary_items_taught_saved_and_reloaded():
+    """Prompt-3 done criterion: six arbitrary items survive the save/reload path."""
+    owner = "six-items-teacher"
+    names = ["Passport", "USB-C charger", "Blue badge", "HDMI dongle", "Water bottle", "Noise-cancelling headphones"]
+    r = client.post(
+        "/api/skills",
+        json={
+            "owner_id": owner,
+            "title": "Six arbitrary items",
+            "type": "packing",
+            "source": "photo",
+            "items": [{"name": n} for n in names],
+        },
+    )
+    assert r.status_code == 201, r.text
+    sid = r.json()["skill_id"]
+    reloaded = client.get(f"/api/skills/{sid}", params={"reader_id": owner}).json()
+    assert [i["name"] for i in reloaded["items"]] == names

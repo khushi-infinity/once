@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.config import get_settings
 from app.models.api import HealthResponse, InferenceStatus
+from app.services import inference
 
 router = APIRouter(tags=["meta"])
 
@@ -16,7 +17,7 @@ def health() -> HealthResponse:
         app_mode=settings.app_mode,
         version=VERSION,
         inference=InferenceStatus(
-            provider="gemini",
-            model=settings.gemini_model_id,
+            provider=settings.inference_provider,
+            model=inference.current_model_id(),
         ),
     )

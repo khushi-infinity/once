@@ -1,8 +1,9 @@
 """ONCE AWS infrastructure provisioning (idempotent, least-priv runtime identity).
 
 Creates only the resources ONCE actually uses:
-  - DynamoDB tables ONCE_Skills (PK skillId, GSI owner-index)
-                     and ONCE_Sessions (PK sessionId, GSI skill-learner-index), on-demand billing;
+  - DynamoDB tables ONCE_Skills (PK skillId, GSI owner-index),
+                     ONCE_Sessions (PK sessionId, GSI skill-learner-index),
+                     ONCE_Grants (PK learnerId, SK skillId), on-demand billing;
   - S3 evidence bucket: private (all four public-access blocks on), default SSE-S3
     encryption, bucket-owner-enforced ACLs.
 
@@ -59,28 +60,44 @@ def main() -> int:
             ("skill-learner-index", [{"AttributeName": "skillLearner", "KeyType": "HASH"}],
              [{"AttributeName": "skillLearner", "AttributeType": "S"}]),
         ),
+        (
+            s.dynamodb_grants_table,
+            [
+                {"AttributeName": "learnerId", "KeyType": "HASH"},
+                {"AttributeName": "skillId", "KeyType": "RANGE"},
+            ],
+            [
+                {"AttributeName": "learnerId", "AttributeType": "S"},
+                {"AttributeName": "skillId", "AttributeType": "S"},
+            ],
+            None,
+        ),
     ]
 
-    for name, keys, attrs, (gsi_name, gsi_keys, gsi_attrs) in specs:
+    for name, keys, attrs, gsi in specs:
         if table_exists(name):
             print(f"[exists] table={name}")
         else:
-            client.create_table(
-                TableName=name,
-                KeySchema=keys,
-                AttributeDefinitions=[*attrs, *gsi_attrs],
-                BillingMode="PAY_PER_REQUEST",
-                GlobalSecondaryIndexes=[{
+            params: dict = {
+                "TableName": name,
+                "KeySchema": keys,
+                "AttributeDefinitions": attrs,
+                "BillingMode": "PAY_PER_REQUEST",
+            }
+            if gsi is not None:
+                gsi_name, gsi_keys, gsi_attrs = gsi
+                params["AttributeDefinitions"] = [*attrs, *gsi_attrs]
+                params["GlobalSecondaryIndexes"] = [{
                     "IndexName": gsi_name,
                     "KeySchema": gsi_keys,
                     "Projection": {"ProjectionType": "ALL"},
-                }],
-            )
+                }]
+            client.create_table(**params)
             client.get_waiter("table_exists").wait(
                 TableName=name, WaiterConfig={"Delay": 2, "MaxAttempts": 30}
             )
             created.append(f"table:{name}")
-            print(f"[created] table={name} gsis={[gsi_name]} billing=PAY_PER_REQUEST")
+            print(f"[created] table={name} gsis={[gsi[0]] if gsi else []} billing=PAY_PER_REQUEST")
 
     # -- S3 evidence bucket ---------------------------------------------------
     s3 = session.client("s3", region_name=region)

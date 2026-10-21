@@ -5,27 +5,26 @@ Working sequence; each phase has a done-criterion checked as real, not aspiratio
 | # | Phase | Done criterion | State |
 | --- | --- | --- | --- |
 | 1 | Foundation: specs, models, backend, frontend, tests | App runs locally; tests pass; docs exist | ✅ **done** |
-| 2 | Real AWS: DynamoDB stores, S3 evidence, IAM-fenced identity, smoke script; AI inference via labeled free-tier provider | One real DB roundtrip, one private S3 roundtrip acknowledged | ✅ **done** — storage + evidence + scoped identity verified (`smoke_live` **4/4**, live pytest **11/11** as `once-local`). Bedrock removed from the product after the AWS account-level restriction made inference impossible; AI runs on a labeled free-tier provider |
-| 3 | Teach: voice/text/photo/camera → draft → confirm → persisted skill | 6 arbitrary items taught→saved→reloaded match; image yields real analysis; no hardcoding | ⏳ next — extraction API + confirmed-item persistence already live; capture UI next |
-| 4 | Recall & verification: memory retrieval, missing-item comparison, sessions, sharing UX | Phrase query "going to an event…" returns stored list + unconfirmed items | ⬜ |
-| 5 | Browser teaching & guided learning (PhotoShare demo app) | Two separate sessions prove teach→learner handoff; wrong click blocks | ⬜ |
-| 6 | Agent orchestration (Strands + labeled free-tier inference) + MCP server (Streamable HTTP, spec ≥2025-11-25) | Independent MCP client exercises tools; trace view shows real calls | ⬜ |
-| 7 | UI polish pass | Type check + build clean; flows tested desktop+mobile; no dead buttons | ⬜ |
-| 8 | Release: e2e audit, deploy, evidence docs, friction log, demo video, submit | README/AWS_EVIDENCE/TESTING complete; judge checklist passes | ⬜ |
+| 2 | Real AWS: DynamoDB stores, S3 evidence, IAM-fenced identity, smoke script; AI inference via labeled provider | One real DB roundtrip, one private S3 roundtrip acknowledged | ✅ **done** — 3 DynamoDB tables + private S3 + scoped identity verified (`smoke_live` **4/4**, live pytest **16/16** as `once-local`). Bedrock removed after the account-level restriction made inference impossible |
+| 3 | Teach: voice/text/photo → draft → confirm → persisted skill | 6 arbitrary items taught→saved→reloaded match; image yields real analysis; no hardcoding | ✅ **done** — `/` teaches by text, browser speech or photo; real extraction via local Ollama (`qwen2.5-coder` text, `qwen2.5vl` vision) with engine metadata; six-item roundtrip test added |
+| 4 | Recall & verification: memory retrieval, missing-item comparison, sessions, sharing UX | Phrase query "going to an event…" returns stored list + unconfirmed items | ✅ **done** — `/recall` grounds on the stored skill, matches aliases, lists not-confirmed required items and never claims proof of absence; sharing enforced server-side |
+| 5 | Browser teaching & guided learning (PhotoShare demo app) | Two separate sessions prove teach→learner handoff; wrong click blocks | ✅ **done** — `/demo/photoshare` records real clicks, saves target ids, shares, starts a learner session; learner view highlights the live DOM element and target-aware verification rejects wrong clicks |
+| 6 | MCP server (Streamable HTTP, spec ≥2025-11-25) + tool orchestration | Independent MCP client exercises tools; real calls visible | ✅ **MCP done** — 8 tools, protocol **2025-11-25**, 8-check independent client smoke. Strands agent framework intentionally **not** claimed: its model providers need cloud inference that this account cannot use; orchestration is explicit Python (extract → confirm → persist → recall → guide), labeled honestly |
+| 7 | UI polish pass | Type check + build clean; flows tested desktop+mobile; no dead buttons | 🟡 **mostly** — production build + ESLint clean; all flows verified over HTTP/API. Manual mobile pass and browser-driven UI run remain |
+| 8 | Release: e2e audit, deploy, evidence docs, friction log, demo video, submit | README/AWS_EVIDENCE/TESTING complete; judge checklist passes | 🟡 **in progress** — docs + evidence complete; demo video, optional deployment, final submission form remain |
 
-## Prompt 1 deliverables (this phase)
+## Verification commands
 
-- Specs: [PRODUCT_SPEC.md](PRODUCT_SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), this file.
-- Data models + API contracts: [backend/app/models/](backend/app/models/).
-- Backend: FastAPI health + skill lifecycle + sharing + learner sessions, **5 tests passing**.
-- Frontend: ONCE home (mic + text + cards + live health), My Skills (real API list), Ask stub.
-- Config: [.env.example](.env.example) covering APP_MODE/AWS vars, mock≠live separation.
+```bash
+cd backend && uv run ruff check . && uv run pytest        # 16 tests
+cd backend && AWS_PROFILE=once-local uv run python scripts/smoke_live.py   # 4 live proofs
+cd backend && uv run python scripts/mcp_smoke.py          # 8 MCP checks
+cd frontend && npm run lint && npm run build
+```
 
-Explicitly unfinished (by design, next prompt): all AWS wiring, voice, photos, browser work.
+## Risks tracked
 
-## Risks being tracked
-
-- Free-tier inference can rate-limit (429) or be unavailable; the API surfaces that honestly (502/503) instead of substituting a fake result.
-- `aws login` needs the user's own browser + MFA; agent cannot and must not do this.
-- MCP protocol version support must be *verified*, in writing, before claiming compliance.
-- AWS spend: on-demand DynamoDB + minimal S3; no EC2; budget alert before Phase 2.
+- Free/local inference can be slow or unavailable; the API surfaces that honestly (502/503) instead of substituting a fake result.
+- `aws login` needs the user's own browser + MFA; the agent cannot and must not do this.
+- MCP protocol version is verified in writing by the smoke client (**2025-11-25**).
+- AWS spend: on-demand DynamoDB + minimal S3; no EC2; no Bedrock.

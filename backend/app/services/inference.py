@@ -1,14 +1,22 @@
 """AI inference for ONCE.
 
-Single provider: Google AI Studio's Gemini API (free tier) over REST, chosen
-after the AWS account-level restriction made Amazon Bedrock inference
-impossible (documented in FRICTION_LOG.md). This is labeled honestly in the
-UI/API: ONCE never claims the inference runs on AWS.
+Two explicitly-selected providers, never auto-substituted:
+
+- ``openai-compatible`` — any OpenAI-compatible endpoint. Defaults to a local
+  Ollama server, which is what the developer machine runs for the demo; the
+  same code works with Groq/OpenRouter/any hosted endpoint by changing
+  ``OPENAI_BASE_URL``/``OPENAI_MODEL``.
+- ``gemini`` — Google AI Studio's Interactions API (free tier).
+
+The provider is chosen with ``INFERENCE_PROVIDER`` and is labeled in every
+response (``engine``), ``/health`` and the UI. ONCE never claims the inference
+runs on AWS: the AWS story is the verified data layer (DynamoDB, S3, IAM).
 
 Rules enforced here:
-- no silent substitution: one provider, failures surface as real errors;
-- every result carries engine metadata (provider, model, duration, usage,
-  request id when the service returns one) — judge-visible proof;
+- no silent substitution: one provider per request, failures surface as real
+  errors to the caller;
+- every result carries sanitized engine metadata (provider, model, duration,
+  token usage, request id when available);
 - private images/prompts are never logged; only sanitized metadata.
 """
 import base64
@@ -25,7 +33,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 RETRYABLE = {429, 500, 502, 503, 504}
-PROVIDER = "gemini"
+PROVIDERS = {"openai-compatible", "gemini"}
 
 
 class InferenceResult:
@@ -61,83 +69,191 @@ class InferenceResult:
 
 
 class ProviderUnavailable(RuntimeError):
-    """The inference provider is unreachable or not configured."""
+    """The inference provider is unreachable, misconfigured or refused access."""
 
 
 _SYSTEM_SUFFIX = "\nReturn ONLY a single JSON object and nothing else."
 
 
-def _generate(user_text: str, system: str | None, image: tuple[bytes, str] | None = None) -> InferenceResult:
+def current_model_id() -> str:
     settings = get_settings()
-    if not settings.gemini_api_key:
-        raise ProviderUnavailable(
-            "GEMINI_API_KEY not configured. Get a free key at aistudio.google.com "
-            "and set it in backend/.env."
-        )
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.gemini_model_id}:generateContent"
-    )
-    parts: list[dict] = []
-    if image is not None:
-        image_bytes, media_type = image
-        parts.append({
-            "inline_data": {
-                "mime_type": media_type,
-                "data": base64.b64encode(image_bytes).decode("ascii"),
-            }
-        })
-    parts.append({"text": user_text})
-    body: dict = {"contents": [{"role": "user", "parts": parts}], "safetySettings": []}
-    if system:
-        body["systemInstruction"] = {"parts": [{"text": system + _SYSTEM_SUFFIX}]}
-    body["generationConfig"] = {"responseMimeType": "application/json"}
+    if settings.inference_provider == "gemini":
+        return settings.gemini_model_id
+    return settings.openai_model
 
+
+def _error_detail(resp: httpx.Response) -> str:
+    """Extract a short provider error message without leaking credentials."""
+    try:
+        body = resp.json()
+    except Exception:  # noqa: BLE001 — error text is best-effort only
+        return f"HTTP {resp.status_code}"
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            return str(err.get("message") or err.get("status") or "provider error")[:300]
+        if isinstance(err, str):
+            return err[:300]
+        if "message" in body:
+            return str(body["message"])[:300]
+    return f"HTTP {resp.status_code}"
+
+
+def _post_with_retries(url: str, *, headers: dict, body: dict, timeout: float = 90) -> tuple[httpx.Response, int]:
     start = time.monotonic()
+    last_exc: Exception | None = None
     for attempt in range(3):
         try:
-            resp = httpx.post(
-                url,
-                params={"key": settings.gemini_api_key},
-                json=body,
-                timeout=30,
-            )
+            resp = httpx.post(url, headers=headers, json=body, timeout=timeout)
             if resp.status_code in RETRYABLE and attempt < 2:
                 time.sleep(2**attempt)
                 continue
-            resp.raise_for_status()
-            break
-        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-            if attempt < 2 and getattr(exc, "response", None) and exc.response.status_code in RETRYABLE:
+            return resp, int((time.monotonic() - start) * 1000)
+        except httpx.TransportError as exc:
+            last_exc = exc
+            if attempt < 2:
                 time.sleep(2**attempt)
                 continue
-            raise ProviderUnavailable(f"gemini client error: {exc}") from exc
+            raise ProviderUnavailable(f"provider unreachable: {exc}") from exc
+    raise ProviderUnavailable(f"provider request failed: {last_exc}")
 
-    duration_ms = int((time.monotonic() - start) * 1000)
+
+def _generate_gemini(user_text: str, system: str | None, image: tuple[bytes, str] | None) -> InferenceResult:
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        raise ProviderUnavailable(
+            "GEMINI_API_KEY is not configured. Add a free key to backend/.env "
+            "(aistudio.google.com) or set INFERENCE_PROVIDER=openai-compatible."
+        )
+    content: list[dict] = [{"type": "text", "text": user_text}]
+    if image is not None:
+        image_bytes, media_type = image
+        content.append({
+            "type": "image",
+            "data": base64.b64encode(image_bytes).decode("ascii"),
+            "mime_type": media_type,
+        })
+    body: dict[str, Any] = {
+        "model": settings.gemini_model_id,
+        "input": content,
+        "response_format": {"type": "text", "mime_type": "application/json"},
+    }
+    if system:
+        body["system_instruction"] = system + _SYSTEM_SUFFIX
+    resp, duration_ms = _post_with_retries(
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
+        headers={"x-goog-api-key": settings.gemini_api_key, "content-type": "application/json"},
+        body=body,
+    )
+    if resp.status_code >= 400:
+        raise ProviderUnavailable(
+            f"gemini refused the request (HTTP {resp.status_code}): {_error_detail(resp)}"
+        )
     try:
         data = resp.json()
     except json.JSONDecodeError as exc:
         raise ProviderUnavailable("gemini returned a non-JSON body") from exc
-    usage = data.get("usageMetadata", {})
     text = "".join(
         part.get("text", "")
-        for cand in data.get("candidates", [])
-        for part in cand.get("content", {}).get("parts", [])
+        for step in data.get("steps", [])
+        if step.get("type") == "model_output"
+        for part in step.get("content", [])
+        if part.get("type") == "text"
     )
+    usage = data.get("usage", {})
     result = InferenceResult(
         text=text,
-        provider=PROVIDER,
+        provider="gemini",
         model_id=settings.gemini_model_id,
         duration_ms=duration_ms,
-        input_tokens=usage.get("promptTokenCount"),
-        output_tokens=usage.get("candidatesTokenCount"),
-        request_id=resp.headers.get("x-goog-request-id"),
+        input_tokens=usage.get("total_input_tokens"),
+        output_tokens=usage.get("total_output_tokens"),
+        request_id=data.get("id") or resp.headers.get("x-goog-request-id"),
     )
     logger.info(
-        "inference model=%s duration_ms=%d in=%s out=%s",
+        "inference provider=gemini model=%s duration_ms=%d in=%s out=%s",
         result.model_id, result.duration_ms, result.input_tokens, result.output_tokens,
     )
     return result
+
+
+def _generate_openai_compatible(
+    user_text: str,
+    system: str | None,
+    image: tuple[bytes, str] | None,
+    model: str | None = None,
+) -> InferenceResult:
+    settings = get_settings()
+    model_id = model or settings.openai_model
+    if not model_id:
+        raise ProviderUnavailable("OPENAI_MODEL is not configured for the openai-compatible provider.")
+    user_content: list[dict] = [{"type": "text", "text": user_text}]
+    if image is not None:
+        image_bytes, media_type = image
+        data_url = f"data:{media_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+        user_content.append({"type": "image_url", "image_url": {"url": data_url}})
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system + _SYSTEM_SUFFIX})
+    messages.append({"role": "user", "content": user_content})
+    base = settings.openai_base_url.rstrip("/")
+    resp, duration_ms = _post_with_retries(
+        f"{base}/chat/completions",
+        headers={
+            "authorization": f"Bearer {settings.openai_api_key or 'not-needed'}",
+            "content-type": "application/json",
+        },
+        body={
+            "model": model_id,
+            "messages": messages,
+            "temperature": 0,
+            "stream": False,
+        },
+    )
+    if resp.status_code >= 400:
+        raise ProviderUnavailable(
+            f"openai-compatible provider refused the request (HTTP {resp.status_code}): {_error_detail(resp)}"
+        )
+    try:
+        data = resp.json()
+    except json.JSONDecodeError as exc:
+        raise ProviderUnavailable("openai-compatible provider returned a non-JSON body") from exc
+    try:
+        text = data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ProviderUnavailable("openai-compatible provider returned an unexpected shape") from exc
+    usage = data.get("usage") or {}
+    result = InferenceResult(
+        text=text,
+        provider="openai-compatible",
+        model_id=model_id,
+        duration_ms=duration_ms,
+        input_tokens=usage.get("prompt_tokens"),
+        output_tokens=usage.get("completion_tokens"),
+        request_id=data.get("id") or resp.headers.get("x-request-id"),
+    )
+    logger.info(
+        "inference provider=openai-compatible model=%s duration_ms=%d in=%s out=%s",
+        result.model_id, result.duration_ms, result.input_tokens, result.output_tokens,
+    )
+    return result
+
+
+def _generate(
+    user_text: str,
+    system: str | None = None,
+    image: tuple[bytes, str] | None = None,
+    model: str | None = None,
+) -> InferenceResult:
+    settings = get_settings()
+    if settings.inference_provider == "gemini":
+        return _generate_gemini(user_text, system, image)
+    if settings.inference_provider == "openai-compatible":
+        return _generate_openai_compatible(user_text, system, image, model)
+    raise ProviderUnavailable(
+        f"Unknown INFERENCE_PROVIDER={settings.inference_provider!r}; "
+        f"expected one of {sorted(PROVIDERS)}."
+    )
 
 
 # --------------------------------------------------------------------------
@@ -159,15 +275,29 @@ def analyze_text(prompt: str, system: str | None = None) -> InferenceResult:
     return _generate(prompt, system)
 
 
-def analyze_image(image_bytes: bytes, media_type: str, prompt: str) -> InferenceResult:
-    return _generate(prompt, None, (image_bytes, media_type))
+def analyze_image(image_bytes: bytes, media_type: str, prompt: str, system: str | None = None) -> InferenceResult:
+    settings = get_settings()
+    vision_model = settings.openai_vision_model or None
+    return _generate(prompt, system, (image_bytes, media_type), vision_model)
+
+
+_EXTRACTION_SYSTEM = (
+    "You extract structured procedures from a teacher's description or photo. "
+    'Return ONLY JSON: {"title": str, "items": [{"name": str, "aliases": [str]}], '
+    '"steps": [{"instruction": str}], "ambiguities": [str]}. '
+    "Never invent items the teacher did not mention or show."
+)
 
 
 def extract_procedure(transcript: str, skill_type: str = "packing") -> InferenceResult:
-    system = (
-        "You extract structured procedures from a teacher's spoken description. "
-        'Return ONLY JSON: {"title": str, "items": [{"name": str, "aliases": [str]}], '
-        '"steps": [{"instruction": str}], "ambiguities": [str]}. '
-        "Never invent items the teacher did not mention."
+    return _generate(f"Task type: {skill_type}\nTeacher said: {transcript}", _EXTRACTION_SYSTEM)
+
+
+def extract_procedure_from_image(image_bytes: bytes, media_type: str, note: str, skill_type: str = "packing") -> InferenceResult:
+    prompt = (
+        f"Task type: {skill_type}\n"
+        "Look at the photo and list the distinct physical items that should be packed or used. "
+        "Then propose the steps the teacher would take, based only on what is visible or explicitly noted.\n"
+        f"Teacher note: {note or '(none)'}"
     )
-    return _generate(f"Task type: {skill_type}\nTeacher said: {transcript}", system)
+    return analyze_image(image_bytes, media_type, prompt, _EXTRACTION_SYSTEM)

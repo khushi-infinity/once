@@ -5,7 +5,7 @@
       "Sid": "ReadWriteOnceTables",
       "Effect": "Allow",
       "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:ConditionCheckItem", "dynamodb:BatchGetItem"],
-      "Resource": ["arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Skills", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Skills/index/*", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Sessions", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Sessions/index/*"]
+      "Resource": ["arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Skills", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Skills/index/*", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Sessions", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Sessions/index/*", "arn:aws:dynamodb:us-east-1:552952091217:table/ONCE_Grants"]
     },
     {
       "Sid": "EvidenceObjectsOnly",

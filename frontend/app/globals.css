@@ -35,6 +35,26 @@ body {
   border-radius: 8px;
 }
 
+/* Guided-learning highlight — applied to the real DOM element the teacher
+   recorded. Respects the reduced-motion rule below. */
+.once-target {
+  outline: 3px solid var(--accent) !important;
+  outline-offset: 3px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.16);
+  animation: once-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes once-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 5px rgba(79, 70, 229, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 11px rgba(79, 70, 229, 0.22);
+  }
+}
+
 /* Respect reduced-motion: drop pulse/transition animation */
 @media (prefers-reduced-motion: reduce) {
   *,

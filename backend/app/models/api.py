@@ -110,5 +110,29 @@ class VerifyStepResponse(BaseModel):
     advanced: bool = False
 
 
+class RecallRequest(BaseModel):
+    reader_id: str = Field(..., min_length=1, max_length=64)
+    query: str = Field(..., min_length=3, max_length=500)
+    # What the reader has already confirmed they have. Anything required and
+    # not listed here is reported as "not confirmed", never as "definitely absent".
+    have: list[str] = Field(default_factory=list)
+
+
+class RecallMissingItem(BaseModel):
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+
+
+class RecallResponse(BaseModel):
+    skill: Skill
+    query: str
+    matched_terms: list[str]
+    have: list[str]
+    missing: list[RecallMissingItem]
+    unconfirmed: list[str]
+    explanation: str
+
+
+
 class ErrorResponse(BaseModel):
     detail: str

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type SkillItem = { name: string; required: boolean };
@@ -101,9 +102,13 @@ export default function SkillsPage() {
 
       <ul className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {skills?.map((s) => (
-          <li key={s.skill_id} className="rounded-2xl border border-border bg-surface p-5">
+          <li key={s.skill_id} className="rounded-2xl border border-border bg-surface p-5 transition hover:border-accent">
             <div className="flex items-baseline justify-between gap-3">
-              <h2 className="font-medium">{s.title}</h2>
+              <h2 className="font-medium">
+                <Link href={`/skills/${s.skill_id}`} className="hover:text-accent">
+                  {s.title}
+                </Link>
+              </h2>
               <span className="text-xs text-muted">v{s.version}</span>
             </div>
             <p className="mt-1 text-xs text-muted">
@@ -115,6 +120,9 @@ export default function SkillsPage() {
                 {s.items.map((i) => i.name).join(", ")}
               </p>
             )}
+            <Link href={`/skills/${s.skill_id}`} className="mt-3 inline-block text-xs text-accent hover:underline">
+              Open →
+            </Link>
           </li>
         ))}
       </ul>

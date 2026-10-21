@@ -19,16 +19,25 @@ class Settings(BaseSettings):
     aws_profile: str = ""  # optional named profile; default chain when empty
     dynamodb_skills_table: str = "ONCE_Skills"
     dynamodb_sessions_table: str = "ONCE_Sessions"
+    dynamodb_grants_table: str = "ONCE_Grants"
     s3_evidence_bucket: str = "once-evidence-552952091217"
 
     # --- Backend -------------------------------------------------------------
     cors_origins: str = "http://localhost:3000"
 
     # --- AI inference --------------------------------------------------------
-    # Google AI Studio (free tier). The AWS account-level restriction made
-    # Bedrock inference impossible; ONCE uses this provider and labels it.
+    # Chosen explicitly, never auto-switched; surfaced in /health and every
+    # extraction response. "openai-compatible" works with a local Ollama server
+    # or any hosted OpenAI-compatible endpoint.
+    inference_provider: str = "gemini"
+    openai_base_url: str = "http://localhost:11434/v1"
+    openai_api_key: str = "ollama"
+    openai_model: str = "qwen2.5-coder:7b"
+    # Separate model for photos (must be vision-capable). Empty = same as openai_model.
+    openai_vision_model: str = ""
+    # Google AI Studio (free tier) via the Interactions API.
     gemini_api_key: str = ""
-    gemini_model_id: str = "gemini-2.5-flash-lite"
+    gemini_model_id: str = "gemini-3.5-flash-lite"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
