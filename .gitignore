@@ -24,6 +24,7 @@ __pycache__/
 
 # AWS local state (never commit temporary credentials)
 .aws/
+.aws-login.log
 
 # OS / editor
 .DS_Store

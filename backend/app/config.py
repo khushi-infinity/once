@@ -16,10 +16,11 @@ class Settings(BaseSettings):
 
     # --- AWS (used only when app_mode == "live") -----------------------------
     aws_region: str = "us-east-1"
-    bedrock_model_id: str = "amazon.nova-2-lite-v1:0"
+    aws_profile: str = ""  # optional named profile; default chain when empty
+    bedrock_model_id: str = "us.amazon.nova-2-lite-v1:0"  # US inference profile
     dynamodb_skills_table: str = "ONCE_Skills"
     dynamodb_sessions_table: str = "ONCE_Sessions"
-    s3_evidence_bucket: str = ""
+    s3_evidence_bucket: str = "once-evidence-552952091217"
 
     # --- Backend -------------------------------------------------------------
     cors_origins: str = "http://localhost:3000"

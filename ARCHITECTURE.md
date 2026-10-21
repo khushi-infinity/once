@@ -7,7 +7,7 @@ Three user-facing destinations: **Teach** (home), **Ask** (recall), **My Skills*
 | Concept | Actual responsibility today |
 | --- | --- |
 | **Skill model** | Typed Pydantic records ([backend/app/models/core.py](backend/app/models/core.py)): `Skill`, `SkillItem` (aliases + tri-state packing verification), `SkillStep` (ordered, with stable `target_element_id` + `expected_event`), `LearnerSession` (per-learner, separate from taught skill), `ShareGrant` |
-| **Skill store** | Persistence interface with **server-side ownership checks** on every operation ([backend/app/services/skill_store.py](backend/app/services/skill_store.py)); in-memory now, DynamoDB same interface in Prompt 2 |
+| **Skill store** | Persistence interface with **server-side ownership checks** on every operation ([backend/app/services/skill_store.py](backend/app/services/skill_store.py)); in-memory (mock) and **real DynamoDB (live)** behind the same interface |
 | **Session engine** | Learner progress: start/resume/verify endpoints where a wrong event provably does not advance ([backend/app/routers/skills.py](backend/app/routers/skills.py)) |
 | **Agents (Observer/Binder/Memory/Coach/Verifier/Coordinator)** | Land in Prompt 6 on Strands + Bedrock; deterministic logic (auth, comparison, progression) stays plain Python — LLMs never own authorization or persistence |
 | **Frontend** | Next.js App Router; dev proxy rewrites `/api/*` and `/health` to the backend (same-origin, no CORS friction) |
@@ -27,9 +27,11 @@ SkillStore interface (ownership + share-grant checks server-side)
    └─ live:  DynamoDB (ONCE_Skills / ONCE_Sessions) + S3 (private evidence)
                  │
                  ▼
-        Bedrock Runtime (Nova 2 Lite, Converse API)  — Prompt 2
-                 only ever *proposes* structured content;
-                 a human confirms and Pydantic validates before persisting.
+        Bedrock Runtime (Nova 2 Lite, Converse API)  — implemented (Prompt 2);
+                 only ever *proposes* structured content; a human confirms and
+                 Pydantic validates before persisting. ⚠ Blocked today by an
+                 AWS account-level restriction (AWS_EVIDENCE.md); the code
+                 path is complete and unblocks unchanged.
 ```
 
 ## Non-negotiable invariants (enforced in code)

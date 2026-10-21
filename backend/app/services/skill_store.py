@@ -8,6 +8,7 @@ reach around this module.
 import uuid
 from threading import Lock
 
+from app.config import get_settings
 from app.models.core import LearnerSession, Skill
 
 Lockable = Lock
@@ -29,6 +30,14 @@ class SkillStore:
         raise NotImplementedError
 
     def share_skill(self, skill_id: str, owner_id: str, learner_id: str, revoke: bool) -> Skill | None:
+        raise NotImplementedError
+
+    def update_skill_from_model(self, skill: Skill) -> Skill:
+        """Persist the full mutation submitted through the domain model.
+
+        Callers fetch -> mutate -> call this; the live store must write the
+        record (generates its updatedAt stamp server-side where relevant).
+        """
         raise NotImplementedError
 
     def save_session(self, session: LearnerSession) -> LearnerSession:
@@ -102,6 +111,11 @@ class InMemorySkillStore(SkillStore):
         self._sessions[session.session_id] = session
         return session
 
+    def update_skill_from_model(self, skill: Skill) -> Skill:
+        # In-memory mode shares the object reference, so assignment is honest.
+        self._skills[skill.skill_id] = skill
+        return skill
+
     def get_session(self, session_id: str) -> LearnerSession | None:
         return self._sessions.get(session_id)
 
@@ -112,10 +126,26 @@ class InMemorySkillStore(SkillStore):
         )
 
 
-_store = InMemorySkillStore()
+_store: SkillStore | None = None
+_store_lock = Lockable()
 
 
 def get_store() -> SkillStore:
+    """Factory: mock mode -> in-memory; live mode -> DynamoDB.
+
+    Never silently substitutes one for the other: the mode comes from
+    APP_MODE and fails loudly if a live store cannot be opened.
+    """
+    global _store
+    if _store is not None:
+        return _store
+    settings = get_settings()
+    if settings.is_live:
+        from app.services.dynamo_store import DynamoSkillStore
+
+        _store = DynamoSkillStore()
+    else:
+        _store = InMemorySkillStore()
     return _store
 
 

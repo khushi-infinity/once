@@ -11,7 +11,7 @@ def test_health():
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert body["app_mode"] == "mock"
+    assert body["app_mode"] in ("mock", "live")  # mode comes from the environment
 
 
 def test_create_and_retrieve_skill_authorization():
@@ -115,3 +115,9 @@ def test_update_bumps_version_without_destroying_original():
     )
     assert r.json()["version"] == 2
     assert r.json()["items"][0]["name"] == "Charger"
+
+    # The update must be *persisted* in the active mode (re-reads from the store).
+    persisted = client.get(f"/api/skills/{sid}", params={"reader_id": owner}).json()
+    assert persisted["version"] == 2
+    assert persisted["items"][0]["name"] == "Charger"
+    assert persisted["title"] == "Bag v2"

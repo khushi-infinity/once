@@ -88,7 +88,9 @@ def update_skill(skill_id: str, req: UpdateSkillRequest, owner_id: str) -> Skill
     if req.steps is not None:
         skill.steps = [SkillStep(**step) for step in req.steps]
     skill.updated_at = utcnow()
-    return skill
+    # Persist for real in every mode — get_skill returns a fresh object in
+    # DynamoDB mode, so the mutation must be written back explicitly.
+    return get_store().update_skill_from_model(skill)
 
 
 @router.post("/skills/{skill_id}/share", response_model=Skill)

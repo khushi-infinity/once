@@ -38,28 +38,38 @@ cd frontend && npm run lint && npm run build
 
 Then open **http://localhost:3000**. The home page shows live backend health.
 
+**Default run is mock mode.** For live AWS mode, create `backend/.env` from
+[backend/.env.example](backend/.env.example) and follow
+[AWS_SETUP.md](AWS_SETUP.md). Live verification:
+
+```bash
+cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_live.py
+```
+
 ## Current status (honest, per build)
 
 | Working now | Not yet (planned) |
 | --- | --- |
-| FastAPI backend + health, typed Pydantic models | Real Amazon Bedrock calls (Prompt 2) |
-| Skill create/read/update/delete with **server-side ownership checks** | Amazon DynamoDB + S3 persistence (Prompt 2) |
-| Sharing grants + revocation, learner-scoped sessions, versioned updates | Voice/photo/camera teaching (Prompt 3) |
-| Learner-session progression with real event verification | Recall & "what am I missing" (Prompt 4) |
-| Next.js UI (home, skills list, ask stub) with live health check | Browser-workflow guided teaching (Prompt 5) |
-| `mock`/`live` mode split; mock never silently fakes live calls | Strands agent orchestration + MCP server (Prompt 6) |
+| FastAPI backend + health, typed Pydantic models | Real Amazon Bedrock inference 🔶 **blocked by an AWS account-level restriction** (fully root-caused and documented in [AWS_EVIDENCE.md](AWS_EVIDENCE.md); adapter code is ready and unblocks without changes) |
+| Skill create/read/update/delete with **server-side ownership checks** | Voice/photo/camera teaching (Prompt 3) |
+| Sharing grants + revocation, learner-scoped sessions, versioned updates | Recall & "what am I missing" UX polish (Prompt 4) |
+| Learner-session progression with real event verification | Browser-workflow guided teaching (Prompt 5) |
+| **Live AWS mode**: skills + sessions persist in real DynamoDB (GSI-backed), evidence in fully-private S3 — verified with a least-privilege IAM identity | Strands agent orchestration + MCP server (Prompt 6) |
+| Idempotent infra provisioning script; smoke test: 4/5 live proofs pass | Deployment + demo video (Prompt 8) |
 
-`APP_MODE=mock` (current) uses in-memory storage so the full flow runs with
-zero cloud dependencies. When `APP_MODE=live` lands in Prompt 2, AWS calls are
-real and their failures are surfaced as errors — never substituted.
+`APP_MODE=mock` uses in-memory storage so the full flow runs with zero cloud
+dependencies (tests default to this). `APP_MODE=live` makes every AWS call real
+and surfaces failures as errors — never substitutes them, never silently fakes.
 
 ## AWS
 
-Setup steps and verification evidence will be documented in
-[AWS_SETUP.md](AWS_SETUP.md) and [AWS_EVIDENCE.md](AWS_EVIDENCE.md) as the
-real integrations land (Prompt 2). Credentials come from the AWS credential
+Setup steps live in [AWS_SETUP.md](AWS_SETUP.md) (account, `aws login`, the
+least-privilege `once-local` runtime identity, idempotent provisioning) and
+runtime verification evidence in [AWS_EVIDENCE.md](AWS_EVIDENCE.md). Tooling
+friction we hit — including the Bedrock account-level blocker — is documented in
+[FRICTION_LOG.md](FRICTION_LOG.md). Credentials come from the AWS credential
 provider chain (`aws login`); no keys are ever committed or placed in frontend code.
 
 ## License
 
-TBD before public release (hackathon requires a public repo with license; see BUILD_PLAN.md).
+MIT — see [LICENSE](LICENSE). The repository is public (per hackathon rules).
