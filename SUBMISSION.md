@@ -339,6 +339,10 @@ and an actionable suggestion.
 - Live teach extraction depends on a local Ollama model or a configured hosted
   OpenAI-compatible endpoint. If inference is unavailable, the API returns an
   honest 502/503; it does not fake a draft.
+- The Gemini 3.8 Flash / 3.5 Flash-Lite adapter is implemented and unit-tested,
+  but the current Google AI Studio project returns `403 PERMISSION_DENIED` for
+  generation even though model listing succeeds. The demo therefore does not
+  claim Gemini is active; `scripts/gemini_smoke.py` reports the real failure.
 - The MCP server is mounted in the FastAPI process (a standalone process is
   also available for the independent smoke client). The Next.js rewrite proxies
   `/mcp` to it for same-origin browser calls.
