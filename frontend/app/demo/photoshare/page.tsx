@@ -21,11 +21,27 @@ import type { NextStep, Skill, VerifyResult } from "@/lib/types";
 
 type Recorded = { target: string; instruction: string; label: string };
 
-const STEP_INFO: Record<string, { instruction: string; label: string }> = {
-  "ps-open-album": { instruction: "Open the PhotoShare album", label: "Open album" },
-  "ps-select-photo": { instruction: "Select the first photo", label: "Select photo" },
-  "ps-add-tag": { instruction: "Add a tag to the selected photo", label: "Add tag" },
-  "ps-share": { instruction: "Share the album with the family group", label: "Share album" },
+const STEP_INFO: Record<string, { instruction: string; label: string; hint: string }> = {
+  "ps-open-album": {
+    instruction: "Open the PhotoShare album",
+    label: "Open album",
+    hint: "It is the blue button in the Family album card.",
+  },
+  "ps-select-photo": {
+    instruction: "Select the first photo",
+    label: "Select photo",
+    hint: "It is the sunset photo on the left.",
+  },
+  "ps-add-tag": {
+    instruction: "Add a tag to the selected photo",
+    label: "Add tag",
+    hint: "It is under the selected photo, next to Share album.",
+  },
+  "ps-share": {
+    instruction: "Share the album with the family group",
+    label: "Share album",
+    hint: "It is the blue button next to Add tag.",
+  },
 };
 
 const ALLOWED = new Set(Object.keys(STEP_INFO));
@@ -36,15 +52,17 @@ function PhotoShareDemo() {
   const initialLearner = searchParams.get("learner_id");
   const initialSkill = searchParams.get("skill_id");
   const requestedMode = searchParams.get("mode");
+  const autoDemo = searchParams.get("demo") === "1";
 
   const [mode, setMode] = useState<"practice" | "teach" | "learn">(
-    initialSession ? "learn" : requestedMode === "teach" ? "teach" : "practice"
+    initialSession || autoDemo ? "learn" : requestedMode === "teach" ? "teach" : "practice"
   );
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState<Recorded[]>([]);
-  const [owner, setOwner] = useState("demo-teacher");
-  const [learner, setLearner] = useState(initialLearner ?? "demo-learner");
-  const [title, setTitle] = useState("PhotoShare: tag and share a photo");
+  const owner = "demo-teacher";
+  const [learner] = useState(initialLearner ?? "demo-learner");
+  const [title, setTitle] = useState("Share a family photo");
+  const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState<Skill | null>(null);
   const [activeSkill, setActiveSkill] = useState<Skill | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(initialSession);
@@ -65,6 +83,10 @@ function PhotoShareDemo() {
   const sessionRef = useRef<string | null>(null);
   const learnerRef = useRef<string>("demo-learner");
   const completionRef = useRef<HTMLElement | null>(null);
+  const autoStarted = useRef(false);
+  const verifyingRef = useRef(false);
+  const pendingClickRef = useRef<string | null>(null);
+  const learnerLabel = learner === "demo-learner" ? "Grandma" : learner;
 
   useEffect(() => {
     stepRef.current = step;
@@ -80,11 +102,11 @@ function PhotoShareDemo() {
     const next = await api<NextStep>(
       `/api/sessions/${encodeURIComponent(sid)}/next?learner_id=${encodeURIComponent(who)}`
     );
-    if (next.done) {
-      setStep({ ...next, done: true });
-    } else {
-      setStep(next);
-    }
+    const resolved = next.done ? { ...next, done: true as const } : next;
+    // Keep the ref in sync immediately: a click can land before React commits
+    // the next render, and it must use the new step, not the previous one.
+    stepRef.current = resolved;
+    setStep(resolved);
   }, []);
 
   // Support opening the learner view directly from a shared link.
@@ -112,7 +134,7 @@ function PhotoShareDemo() {
     };
   }, [initialSession, initialLearner, initialSkill, loadNext]);
 
-  // Real DOM highlight — not a mock screenshot.
+  // Real DOM highlight, not a mock screenshot.
   useEffect(() => {
     const clear = () => {
       document.querySelectorAll(".once-target").forEach((el) => el.classList.remove("once-target"));
@@ -146,6 +168,7 @@ function PhotoShareDemo() {
     setStep(null);
     setTotalSteps(null);
     setError(null);
+    setCopied(false);
     setMode("practice");
   }
 
@@ -166,6 +189,14 @@ function PhotoShareDemo() {
     const current = stepRef.current;
     const sid = sessionRef.current;
     if (!current || current.done || current.step_order == null || !sid) return;
+    if (verifyingRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (ALLOWED.has(clicked)) {
+        pendingClickRef.current = clicked;
+      }
+      return;
+    }
 
     if (clicked !== current.target_element_id) {
       e.preventDefault();
@@ -178,7 +209,8 @@ function PhotoShareDemo() {
 
   async function verify(order: number, elementId: string) {
     const sid = sessionRef.current;
-    if (!sid) return;
+    if (!sid || verifyingRef.current) return;
+    verifyingRef.current = true;
     try {
       const result = await api<VerifyResult>(
         `/api/sessions/${encodeURIComponent(sid)}/verify?learner_id=${encodeURIComponent(
@@ -193,6 +225,16 @@ function PhotoShareDemo() {
       }
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      verifyingRef.current = false;
+      const pending = pendingClickRef.current;
+      pendingClickRef.current = null;
+      const nextStep = stepRef.current;
+      if (pending && nextStep && !nextStep.done && nextStep.step_order != null) {
+        // A fast second click arrived while the first verification was still
+        // in flight. Re-check it against the step that just loaded.
+        void verify(nextStep.step_order, pending);
+      }
     }
   }
 
@@ -244,7 +286,7 @@ function PhotoShareDemo() {
       resetDemo();
       setVerdict({
         verdict: "verified",
-        reason: `Skill saved and shared with ${learner}. Learner mode starts at step 1.`,
+        reason: `Skill saved and shared with ${learnerLabel}. Helping starts at step 1.`,
         advanced: false,
       });
       await loadNext(started.session_id, learner.trim() || "demo-learner");
@@ -263,7 +305,7 @@ function PhotoShareDemo() {
       const started = await api<NextStep>("/api/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skill_id: activeSkill.skill_id, learner_id: learner }),
+        body: JSON.stringify({ skill_id: activeSkill.skill_id, learner_id: learner, restart: true }),
       });
       setSessionId(started.session_id);
       sessionRef.current = started.session_id;
@@ -275,6 +317,58 @@ function PhotoShareDemo() {
       setBusy(false);
     }
   }
+
+  async function startSavedWorkflow() {
+    setBusy(true);
+    setError(null);
+    try {
+      const body = await api<{ skills: Skill[] }>(
+        `/api/skills?reader_id=${encodeURIComponent("demo-teacher")}`
+      );
+      const workflow = body.skills.find((s) => s.type === "browser_workflow");
+      if (!workflow) {
+        throw new Error("No saved browser workflow yet. Record one in Teach by showing.");
+      }
+      setActiveSkill(workflow);
+      setTotalSteps(workflow.steps.length);
+      const started = await api<NextStep>("/api/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          skill_id: workflow.skill_id,
+          learner_id: learner,
+          restart: true,
+        }),
+      });
+      setSessionId(started.session_id);
+      sessionRef.current = started.session_id;
+      resetDemo();
+      setMode("learn");
+      await loadNext(started.session_id, learner);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${shareUrl}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("I could not copy the link. Open it from this browser instead.");
+    }
+  }
+
+  useEffect(() => {
+    if (!autoDemo || initialSession || autoStarted.current) return;
+    autoStarted.current = true;
+    void startSavedWorkflow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDemo, initialSession]);
 
   function repeatInstruction() {
     if (!step?.instruction) return;
@@ -288,11 +382,12 @@ function PhotoShareDemo() {
     window.speechSynthesis.speak(utterance);
   }
 
+  const sharedSkill = saved ?? activeSkill;
   const shareUrl =
-    saved && sessionId
+    sharedSkill && sessionId
       ? `/demo/photoshare?session_id=${encodeURIComponent(sessionId)}&learner_id=${encodeURIComponent(
           learner
-        )}&skill_id=${encodeURIComponent(saved.skill_id)}`
+        )}&skill_id=${encodeURIComponent(sharedSkill.skill_id)}`
       : null;
 
   const done = mode === "learn" && step?.done === true;
@@ -315,8 +410,9 @@ function PhotoShareDemo() {
   const stepNumber = (step?.step_order ?? 0) + 1;
   const total = totalSteps ?? activeSkill?.steps.length ?? 4;
   const progress = done ? 100 : Math.min(100, Math.round(((stepNumber - 1) / Math.max(total, 1)) * 100));
-  const currentLabel =
-    (step?.target_element_id && STEP_INFO[step.target_element_id]?.label) || "the outlined control";
+  const currentInfo = step?.target_element_id ? STEP_INFO[step.target_element_id] : null;
+  const currentLabel = currentInfo?.label || step?.instruction || "the highlighted control";
+  const currentHint = currentInfo?.hint || "It is the control with the blue outline.";
 
   return (
     <div className="mx-auto max-w-4xl px-4 pb-10 sm:px-6">
@@ -327,8 +423,7 @@ function PhotoShareDemo() {
             PhotoShare
           </h1>
           <p className="mt-2 max-w-lg text-sm font-semibold text-muted">
-            A tiny app for demonstrating real guidance: the teacher records clicks, and a second
-            person gets the next step outlined in the live DOM.
+            A tiny family photo app. Teach it once, then help someone else do it.
           </p>
         </div>
         <Link
@@ -343,8 +438,8 @@ function PhotoShareDemo() {
       <div className="hide-scrollbar mt-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface/70 p-1">
         {[
           { value: "practice", label: "Practice", short: "Practice" },
-          { value: "teach", label: "Teach by demonstration", short: "Teach" },
-          { value: "learn", label: "Guide a learner", short: "Guide" },
+          { value: "teach", label: "Teach by showing", short: "Teach" },
+          { value: "learn", label: "Help someone", short: "Help" },
         ].map((item) => (
           <button
             key={item.value}
@@ -377,7 +472,7 @@ function PhotoShareDemo() {
           onClick={resetAll}
           className="ml-auto shrink-0 rounded-full px-3 py-2 text-xs font-bold text-muted hover:text-foreground"
         >
-          Reset
+          Start over
         </button>
       </div>
 
@@ -392,10 +487,10 @@ function PhotoShareDemo() {
                     Recording
                   </span>
                 )}
-                <h2 className="text-lg font-extrabold tracking-[-0.02em]">Record your workflow</h2>
+                <h2 className="text-lg font-extrabold tracking-[-0.02em]">Show ONCE how you do it</h2>
               </div>
               <p className="mt-1 text-xs font-semibold text-muted">
-                Click real controls in the app below. Each unique click becomes a step.
+                Click the controls in the app below. Each click becomes a step.
               </p>
             </div>
             <button
@@ -432,7 +527,7 @@ function PhotoShareDemo() {
               </p>
               {recorded.length === 0 ? (
                 <p className="mt-2 text-sm font-semibold text-muted">
-                  {recording ? "Recording — open the album to begin." : "Nothing recorded yet."}
+                  {recording ? "Recording, open the album to begin." : "Nothing recorded yet."}
                 </p>
               ) : (
                 <ol className="mt-2 space-y-1.5">
@@ -445,7 +540,6 @@ function PhotoShareDemo() {
                         {i + 1}
                       </span>
                       <span className="min-w-0 flex-1 truncate">{r.instruction}</span>
-                      <code className="hidden text-[9px] text-muted sm:inline">#{r.target}</code>
                     </li>
                   ))}
                 </ol>
@@ -464,29 +558,12 @@ function PhotoShareDemo() {
                   className="mt-1 w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-bold outline-none focus:border-accent"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label htmlFor="owner" className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                    Owner
-                  </label>
-                  <input
-                    id="owner"
-                    value={owner}
-                    onChange={(e) => setOwner(e.target.value)}
-                    className="mt-1 w-full rounded-full border border-border bg-surface px-3.5 py-2.5 text-xs font-bold outline-none focus:border-accent"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="learner" className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                    Share with
-                  </label>
-                  <input
-                    id="learner"
-                    value={learner}
-                    onChange={(e) => setLearner(e.target.value)}
-                    className="mt-1 w-full rounded-full border border-border bg-surface px-3.5 py-2.5 text-xs font-bold outline-none focus:border-accent"
-                  />
-                </div>
+              <div className="rounded-[16px] bg-surface-2 px-3.5 py-3 text-xs font-semibold leading-relaxed text-muted">
+                Teaching as <span className="font-extrabold text-foreground">You</span>. Helping{" "}
+                <span className="font-extrabold text-foreground">{learnerLabel}</span>.
+                <span className="mt-1 block text-[10px]">
+                  Demo profiles only. A production account would supply both identities.
+                </span>
               </div>
               <button
                 type="button"
@@ -494,13 +571,17 @@ function PhotoShareDemo() {
                 disabled={busy || recorded.length === 0}
                 className="mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 text-xs font-extrabold text-white transition hover:bg-accent-deep disabled:opacity-50"
               >
-                {busy ? "Saving…" : "Save, share & start learner"}
+                {busy ? "Saving…" : `Save and help ${learnerLabel}`}
                 {!busy && <ArrowRightIcon className="size-4" />}
               </button>
               {shareUrl && (
-                <p className="break-all rounded-[14px] bg-surface-2 px-3 py-2 text-[10px] font-bold text-muted">
-                  Learner link: <span className="text-accent">{shareUrl}</span>
-                </p>
+                <button
+                  type="button"
+                  onClick={() => void copyShareLink()}
+                  className="rounded-full border border-border bg-surface px-3 py-2 text-[10px] font-extrabold text-muted transition hover:border-accent hover:text-accent"
+                >
+                  {copied ? "Link copied" : `Copy ${learnerLabel}'s link`}
+                </button>
               )}
             </div>
           </div>
@@ -528,7 +609,7 @@ function PhotoShareDemo() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-extrabold">
-                    {activeSkill?.title ?? "PhotoShare: tag and share a photo"}
+                    {activeSkill?.title ?? "Share a family photo"}
                   </p>
                   <p className="text-[10px] font-bold text-muted">
                     {activeSkill?.steps.length ?? recorded.length} steps · completed just now
@@ -550,6 +631,15 @@ function PhotoShareDemo() {
                 <RepeatIcon className="size-4" />
                 Do it again
               </button>
+              {shareUrl && (
+                <button
+                  type="button"
+                  onClick={() => void copyShareLink()}
+                  className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-foreground transition hover:bg-blue-50"
+                >
+                  {copied ? "Link copied" : `Copy ${learnerLabel}'s link`}
+                </button>
+              )}
               <Link
                 href="/"
                 className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-foreground transition hover:bg-blue-50"
@@ -562,7 +652,7 @@ function PhotoShareDemo() {
         </section>
       )}
 
-      {mode === "learn" && !done && (
+      {mode === "learn" && !done && sessionId && (
         <section className="app-card mt-4 overflow-hidden">
           <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
@@ -570,14 +660,26 @@ function PhotoShareDemo() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-1">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                  Guiding {learner}
+                <p className="min-w-0 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Helping {learnerLabel}
+                  {activeSkill?.title ? ` · ${activeSkill.title}` : ""}
                 </p>
-                {step && !step.done && (
-                  <p className="text-[10px] font-extrabold text-muted">
-                    Step {stepNumber} of {total}
-                  </p>
-                )}
+                <div className="flex items-center gap-2">
+                  {step && !step.done && (
+                    <p className="text-[10px] font-extrabold text-muted">
+                      Step {stepNumber} of {total}
+                    </p>
+                  )}
+                  {shareUrl && (
+                    <button
+                      type="button"
+                      onClick={() => void copyShareLink()}
+                      className="rounded-full border border-border bg-surface px-2 py-1 text-[9px] font-extrabold text-muted hover:border-accent hover:text-accent"
+                    >
+                      {copied ? "Copied" : "Copy link"}
+                    </button>
+                  )}
+                </div>
               </div>
               {step && !step.done ? (
                 <>
@@ -585,12 +687,12 @@ function PhotoShareDemo() {
                     {step.instruction}
                   </h2>
                   <p className="mt-1 text-xs font-semibold text-muted">
-                    Click the outlined control in the app below. A wrong click is reported and does
-                    not advance.
+                    Click <span className="font-extrabold text-foreground">{currentLabel}</span>.{" "}
+                    {currentHint} A wrong click is checked and does not advance.
                   </p>
                 </>
               ) : (
-                <h2 className="mt-1 text-lg font-extrabold">Loading the next step…</h2>
+                <h2 className="mt-1 text-lg font-extrabold">Getting the next step…</h2>
               )}
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
                 <div
@@ -617,8 +719,8 @@ function PhotoShareDemo() {
 
           {stuck && (
             <p className="mx-4 mb-3 rounded-[16px] border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-bold text-amber-900 sm:mx-5">
-              Look for the outlined control: <span className="font-extrabold">{currentLabel}</span>.
-              Click it once. The step will not advance until the recorded element is clicked.
+              Click <span className="font-extrabold">{currentLabel}</span>. {currentHint} The step
+              will advance when the recorded control is clicked.
             </p>
           )}
 
@@ -656,17 +758,27 @@ function PhotoShareDemo() {
 
       {mode === "learn" && !sessionId && !done && (
         <section className="mt-4 rounded-[24px] border border-dashed border-accent/40 bg-accent-soft/50 px-4 py-5 text-center">
-          <p className="text-sm font-extrabold">No learner session is open.</p>
-          <p className="mt-1 text-xs font-semibold text-muted">
-            Open a saved browser-workflow skill, share it and start a learner session.
+          <p className="text-sm font-extrabold">No one is learning yet.</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs font-semibold text-muted">
+            Start with the saved PhotoShare workflow, or choose another skill.
           </p>
-          <Link
-            href="/skills"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-xs font-extrabold text-white"
-          >
-            Go to My Skills
-            <ArrowRightIcon className="size-3.5" />
-          </Link>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => void startSavedWorkflow()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-xs font-extrabold text-white disabled:opacity-50"
+            >
+              {busy ? "Starting…" : "Start the guided demo"}
+              {!busy && <ArrowRightIcon className="size-3.5" />}
+            </button>
+            <Link
+              href="/skills"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-extrabold text-muted"
+            >
+              Choose a skill
+            </Link>
+          </div>
         </section>
       )}
 
@@ -728,8 +840,8 @@ function PhotoShareDemo() {
                 ))}
               </div>
               <p className="mt-4 rounded-xl bg-white/70 px-2.5 py-2 text-[10px] font-semibold leading-relaxed text-muted">
-                The teacher records real clicks here. A learner gets the same app with the next
-                target outlined.
+                Click the real controls here. A learner sees the next control highlighted in the
+                same app.
               </p>
             </aside>
 
@@ -844,9 +956,20 @@ function PhotoShareDemo() {
       )}
 
       <p className="mt-4 text-center text-[10px] font-bold text-muted">
-        Steps target stable element ids, so guidance survives a reload. No screenshots, no fake
-        clicks.
+        Each step highlights the real control. A wrong click is checked; the step only advances
+        when you click the control your teacher recorded.
       </p>
+
+      <details className="mx-auto mt-3 max-w-md rounded-[16px] border border-border/70 bg-surface/60 px-3 py-2 text-[10px] font-semibold text-muted">
+        <summary className="cursor-pointer font-extrabold text-foreground/70">
+          Developer evidence
+        </summary>
+        <p className="mt-2 leading-relaxed">
+          Each step stores the target element id and expected event. The server verifies the
+          clicked id before advancing, so a wrong click cannot pass. The highlight is a real DOM
+          class, not a screenshot.
+        </p>
+      </details>
     </div>
   );
 }

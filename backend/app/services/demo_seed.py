@@ -4,7 +4,7 @@ The live demo store is seeded separately in DynamoDB. Mock mode is what most
 judges can run without AWS credentials, so it ships the same four journeys:
 an event bag, a tea ritual, a desk reset, and the PhotoShare browser workflow.
 
-This is demo *content*, clearly labeled as mock mode — never fake logs or fake
+This is demo *content*, clearly labeled as mock mode, never fake logs or fake
 success. Both the HTTP API and the MCP server run this seed in their own
 process, so `/alexa` works offline and shows real MCP calls against real
 (persisted-for-the-process) records.

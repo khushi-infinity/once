@@ -2,7 +2,7 @@
 
 Uploads are consent-gated by the caller; objects go to a fully private bucket
 (ACLs blocked, encryption enforced). Only object *references* ever enter skill
-records — never raw bytes, never public URLs.
+records, never raw bytes, never public URLs.
 """
 import boto3
 from botocore.exceptions import ClientError

@@ -45,18 +45,26 @@ type RecognitionLike = {
 
 type RecognitionCtor = new () => RecognitionLike;
 
-const SKILL_TYPES: { value: SkillType; label: string }[] = [
-  { value: "packing", label: "Packing list" },
-  { value: "checklist", label: "Checklist" },
-  { value: "household_procedure", label: "Household procedure" },
-  { value: "browser_workflow", label: "Browser workflow" },
-];
-
 const PROMPTS = [
   "I pack for a conference with my laptop, charger, HDMI adapter, badge and water bottle…",
   "My tea ritual: boil water, warm the cup, add one spoon of leaves, steep three minutes…",
   "On PhotoShare I open the album, pick a photo, add a family tag and share it…",
 ];
+
+function inferSkillType(text: string, mode: Mode): SkillType {
+  const value = text.toLowerCase();
+  if (mode === "photo") return "packing";
+  if (/\b(open|click|website|browser|app|screen|share|tag|album|photoshare)\b/.test(value)) {
+    return "browser_workflow";
+  }
+  if (/\b(boil|tea|coffee|clean|wash|close|lock|routine|first|then|next)\b/.test(value)) {
+    return "household_procedure";
+  }
+  if (/\b(pack|bag|bring|take|travel|conference|trip|items?)\b/.test(value)) {
+    return "packing";
+  }
+  return "checklist";
+}
 
 function Waveform() {
   return (
@@ -251,6 +259,8 @@ export default function TeachPage() {
     const input = (opts?.text ?? text).trim();
     const source: SkillSource =
       activeMode === "voice" ? "voice" : activeMode === "photo" ? "photo" : "text";
+    const inferredType = inferSkillType(source === "photo" ? note : input, activeMode);
+    setSkillType(inferredType);
     setBusy("extract");
     try {
       let next: Draft;
@@ -259,14 +269,14 @@ export default function TeachPage() {
         const form = new FormData();
         form.append("file", file);
         form.append("note", note);
-        form.append("skill_type", skillType);
+        form.append("skill_type", inferredType);
         next = await api<Draft>("/api/teach/extract-image", { method: "POST", body: form });
       } else {
         if (input.length < 3) throw new Error("Tell ONCE a little more first.");
         next = await api<Draft>("/api/teach/extract", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ transcript: input, skill_type: skillType, source }),
+          body: JSON.stringify({ transcript: input, skill_type: inferredType, source }),
         });
       }
       setDraft(next);
@@ -364,7 +374,8 @@ export default function TeachPage() {
     setDraft((d) => (d ? { ...d, steps: [...d.steps, step] } : d));
   }
 
-  const sourceLabel = mode === "voice" ? "voice" : mode === "photo" ? "photo" : "text";
+  const savedFrom =
+    mode === "voice" ? "from your voice" : mode === "photo" ? "from your photo" : "from your words";
 
   return (
     <div className="mx-auto max-w-5xl overflow-x-clip px-4 pb-10 sm:px-6">
@@ -386,7 +397,18 @@ export default function TeachPage() {
 
         <Orb />
 
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+        <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-relaxed text-muted">
+          Teach ONCE once. It remembers the method and helps the next person do it.
+        </p>
+        <div className="mx-auto mt-3 flex max-w-xl items-center justify-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted sm:text-[10px]">
+          <span>You teach</span>
+          <ArrowRightIcon className="size-3 text-accent/70" />
+          <span>ONCE remembers</span>
+          <ArrowRightIcon className="size-3 text-accent/70" />
+          <span>Someone follows</span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2.5 sm:gap-4">
           <button
             type="button"
             onClick={startTalk}
@@ -450,6 +472,14 @@ export default function TeachPage() {
           <ArrowRightIcon className="size-4 shrink-0 text-accent transition group-hover:translate-x-0.5" />
         </Link>
 
+        <Link
+          href="/demo/photoshare?demo=1"
+          className="mt-3 inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-3 text-xs font-extrabold text-white transition hover:bg-accent"
+        >
+          Try the 60-second story
+          <ArrowRightIcon className="size-3.5" />
+        </Link>
+
         <form
           onSubmit={submitQuick}
           className="app-card mx-auto mt-4 flex max-w-xl items-center gap-2 rounded-full py-1.5 pl-2 pr-1.5 sm:mt-5"
@@ -481,7 +511,7 @@ export default function TeachPage() {
         </form>
 
         <p className="mt-3 text-[11px] font-bold text-muted">
-          Voice-first · Photos · Real storage · Nothing invented
+          Voice-first · Photos · Private memory · You confirm
         </p>
       </section>
 
@@ -498,24 +528,10 @@ export default function TeachPage() {
               Show me your method
             </h2>
             <p className="mt-1 text-sm font-semibold text-muted">
-              Speak, type or show a photo. I&apos;ll draft it — you confirm before saving.
+              Speak, type or show a photo. I&apos;ll work out the format and draft it. You confirm
+              before saving.
             </p>
           </div>
-          <label htmlFor="skill-type" className="sr-only">
-            Kind of skill
-          </label>
-          <select
-            id="skill-type"
-            value={skillType}
-            onChange={(e) => setSkillType(e.target.value as SkillType)}
-            className="rounded-full border border-border bg-surface-2 px-3.5 py-2 text-xs font-extrabold text-foreground outline-none focus:border-accent"
-          >
-            {SKILL_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="mt-4 flex rounded-full bg-surface-2 p-1">
@@ -574,7 +590,7 @@ export default function TeachPage() {
                 <Waveform />
                 <p className="mt-1 truncate text-xs font-semibold text-muted">
                   {listening
-                    ? interim || "I'm listening — speak naturally."
+                    ? interim || "I'm listening, speak naturally."
                     : "Tap the mic and tell me how you do it."}
                 </p>
               </div>
@@ -668,7 +684,10 @@ export default function TeachPage() {
         />
         {interim && <p className="mt-1 text-xs font-semibold text-muted">{interim}</p>}
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+          Examples
+        </p>
+        <div className="mt-1 flex flex-wrap gap-1.5">
           {PROMPTS.map((p, i) => (
             <button
               key={i}
@@ -695,12 +714,12 @@ export default function TeachPage() {
           ) : (
             <>
               <SparkleIcon className="size-4" />
-              Create draft with AI
+              Create draft
             </>
           )}
         </button>
         <p className="mt-2 text-center text-[10px] font-bold text-muted">
-          The AI only drafts. Nothing is stored until you confirm.
+          I only draft. Nothing is stored until you confirm.
         </p>
 
         {error && (
@@ -724,15 +743,23 @@ export default function TeachPage() {
               <SparkleIcon className="size-5" />
             </span>
             <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em]">
-              I&apos;ve learned your method!
+              Here&apos;s your draft.
             </h2>
             <p className="mx-auto mt-1 max-w-md text-sm font-semibold text-muted">
               Here&apos;s what I understood. You can edit anything before saving.
             </p>
             <span className="mt-3 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-border bg-surface px-3 py-1 text-[10px] font-extrabold text-muted">
               <SparkleIcon className="size-3 text-accent" />
-              {engineLabel(draft.engine)}
+              {draft.engine.provider === "deterministic-mock" ? "Drafted offline" : "Drafted by AI"}
             </span>
+            <details className="mx-auto mt-2 max-w-sm text-left">
+              <summary className="cursor-pointer text-center text-[10px] font-bold text-muted">
+                How this draft was made
+              </summary>
+              <p className="mt-1 rounded-[12px] bg-surface-2 px-3 py-2 text-[10px] font-semibold text-muted">
+                {engineLabel(draft.engine)}
+              </p>
+            </details>
           </div>
 
           <div className="p-4 sm:p-6">
@@ -781,7 +808,7 @@ export default function TeachPage() {
               </div>
               {draft.items.length === 0 ? (
                 <p className="px-4 py-4 text-sm font-semibold text-muted">
-                  No items proposed — add any you need.
+                  No items proposed, add any you need.
                 </p>
               ) : (
                 <ul className="divide-y divide-border/60 px-2">
@@ -831,7 +858,7 @@ export default function TeachPage() {
               </div>
               {draft.steps.length === 0 ? (
                 <p className="px-4 py-4 text-sm font-semibold text-muted">
-                  No steps proposed — add them if this is a procedure.
+                  No steps proposed, add them if this is a procedure.
                 </p>
               ) : (
                 <ol className="divide-y divide-border/60 px-2">
@@ -882,7 +909,7 @@ export default function TeachPage() {
               </button>
             </div>
             <p className="mt-2 text-center text-[10px] font-bold text-muted sm:text-right">
-              Saved to {sourceLabel} · you can edit or share it later
+              Saved {savedFrom}. You can edit or share it later.
             </p>
           </div>
         </section>
@@ -899,7 +926,7 @@ export default function TeachPage() {
                 Saved “{saved.title}”
               </p>
               <p className="mt-1 text-sm font-semibold text-[#397a58]">
-                {saved.items.length} items · {saved.steps.length} steps · version {saved.version}
+                {saved.items.length} items · {saved.steps.length} steps
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link
@@ -923,10 +950,18 @@ export default function TeachPage() {
       )}
 
       <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2 text-[10px] font-bold text-muted">
-        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">Grounded memory</span>
-        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">No invented items</span>
-        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">MCP 2025-11-25</span>
-        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">Store: AWS live · memory mock</span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">
+          Only from what you taught
+        </span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">
+          You confirm before saving
+        </span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">
+          Guided steps are checked
+        </span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">
+          Private by default
+        </span>
       </div>
     </div>
   );

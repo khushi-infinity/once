@@ -2,7 +2,7 @@
 
 No chatbot guessing: retrieve the best-matching saved skill, then compare its
 required items against what the reader explicitly confirms. Unconfirmed items
-are reported as *not confirmed* — never as proof that something is absent.
+are reported as *not confirmed*, never as proof that something is absent.
 """
 import re
 
@@ -95,12 +95,15 @@ def recall_for_reader(reader_id: str, query: str, have: list[str]) -> RecallResp
         for item in skill.items
         if item.required and not _matches(item.name, item.aliases, have)
     ]
-    explanation = (
-        f"Matched “{skill.title}” (v{skill.version}) on: {', '.join(sorted(matched))}. "
-        f"{len(have)} item(s) confirmed present; "
-        f"{len(not_confirmed)} required item(s) are not confirmed. "
-        "Not confirmed is not proof of absence — check the bag before leaving."
-    )
+    if not_confirmed:
+        count = len(not_confirmed)
+        summary = f"{count} required {'item is' if count == 1 else 'items are'} not confirmed."
+        explanation = (
+            f"From “{skill.title}”: {summary} "
+            "Not confirmed is not proof of absence, so check before you leave."
+        )
+    else:
+        explanation = f"From “{skill.title}”: every required item is confirmed. You are ready."
     return RecallResponse(
         skill=skill,
         query=query,

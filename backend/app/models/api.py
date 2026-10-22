@@ -67,7 +67,7 @@ class TeachExtractResponse(BaseModel):
     items: list[SkillItemRow] = Field(default_factory=list)
     steps: list[StepRow] = Field(default_factory=list)
     ambiguities: list[str] = Field(default_factory=list)
-    # What produced this draft — surfaced so the teacher (and judges) can see
+    # What produced this draft, surfaced so the teacher (and judges) can see
     # whether real AI extraction or the labeled deterministic mock ran.
     engine: DraftEngine
 

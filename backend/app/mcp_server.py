@@ -1,4 +1,4 @@
-"""ONCE MCP server — exposes the skill-memory tools to any MCP client.
+"""ONCE MCP server, exposes the skill-memory tools to any MCP client.
 
 Transport: Streamable HTTP (MCP spec 2025-11-25 or newer, negotiated by the
 official SDK). `app.main` mounts this app at `/mcp`, so the normal app needs no
@@ -54,7 +54,7 @@ def once_get_skill(skill_id: str, reader_id: str) -> dict:
 
 @mcp.tool()
 def once_recall_missing(reader_id: str, query: str, have: list[str] | None = None) -> dict:
-    """Grounded 'what am I missing?' — retrieves a stored skill and compares its
+    """Grounded 'what am I missing?', retrieves a stored skill and compares its
     required items with the names the reader confirms they already have.
 
     The response field is `not_confirmed`, because unconfirmed items are not
@@ -130,7 +130,7 @@ def once_extract_draft(transcript: str, skill_type: str = "packing") -> dict:
             "draft": draft.model_dump(mode="json"),
             "engine": draft.engine.model_dump(mode="json"),
         }
-    except Exception as exc:  # noqa: BLE001 — surfaced truthfully to the MCP caller
+    except Exception as exc:  # noqa: BLE001, surfaced truthfully to the MCP caller
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 

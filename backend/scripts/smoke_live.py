@@ -106,7 +106,7 @@ def main() -> int:
             try:
                 urllib.request.urlopen(public_url, timeout=5)
                 public = True
-            except Exception:  # noqa: BLE001 — any response = publicly reachable
+            except Exception:  # noqa: BLE001, any response = publicly reachable
                 public = False
             record("s3_private_roundtrip", ok and not public,
                    f"bucket={bucket} key={key} publicly_readable={public}")

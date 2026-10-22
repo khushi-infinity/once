@@ -1,7 +1,7 @@
 [project]
 name = "once-backend"
 version = "0.1.0"
-description = "ONCE — multimodal personal skill-memory backend (FastAPI + DynamoDB + S3)"
+description = "ONCE: multimodal personal skill-memory backend (FastAPI + DynamoDB + S3)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",

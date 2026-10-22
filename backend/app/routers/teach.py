@@ -63,7 +63,7 @@ def extract(req: TeachExtractRequest) -> TeachExtractResponse:
         return draft_from_result(result)
     except HTTPException:
         raise
-    except Exception as exc:  # truthfully surfaced — never substituted
+    except Exception as exc:  # truthfully surfaced, never substituted
         logger.warning("extraction failed: %s: %s", type(exc).__name__, exc)
         raise HTTPException(
             status_code=502,
@@ -104,7 +104,7 @@ async def extract_image(
         return draft_from_result(result)
     except HTTPException:
         raise
-    except Exception as exc:  # truthfully surfaced — never substituted
+    except Exception as exc:  # truthfully surfaced, never substituted
         logger.warning("image extraction failed: %s: %s", type(exc).__name__, exc)
         raise HTTPException(
             status_code=502,

@@ -45,7 +45,7 @@ def test_create_and_retrieve_skill_authorization():
     # Owner can read.
     assert client.get(f"/api/skills/{sid}", params={"reader_id": owner}).status_code == 200
 
-    # Stranger cannot — returns 404, never leaks existence.
+    # Stranger cannot, returns 404, never leaks existence.
     assert client.get(f"/api/skills/{sid}", params={"reader_id": "stranger"}).status_code == 404
 
     # Unauthorized delete fails.

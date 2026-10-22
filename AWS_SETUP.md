@@ -5,14 +5,14 @@
 > read-only identity checks and resource scripts *after* credentials exist locally,
 > and must never print tokens or hold root credentials.
 
-## Step A — account safety (human)
+## Step A: account safety (human)
 
 1. AWS Account → enable **MFA** on the root user.
 2. Billing → verify a **payment method** and check which account plan you are on.
 3. Billing → create a small **AWS Budget with email alerts** (target ≤ $10).
 4. Region for development: **us-east-1**.
 
-## Step B — local authentication (human + agent)
+## Step B: local authentication (human + agent)
 
 AWS CLI ≥ 2.32 required (**installed: 2.37.5** ✔).
 
@@ -26,7 +26,7 @@ aws sts get-caller-identity --profile once
 assumed by root accounts"). The login session ("once" profile) is therefore used for
 one-time admin work only: provisioning, IAM setup. The app itself never runs as root.
 
-## Step C — least-privilege runtime identity (one-time admin)
+## Step C: least-privilege runtime identity (one-time admin)
 
 The backend runs as a scoped IAM user `once-local`:
 
@@ -52,7 +52,7 @@ No IAM/admin/bucket-level powers; no table `Describe*` (needed only by the one-t
 provisioning script, run with the admin session). Verify:
 `aws sts get-caller-identity --profile once-local` → `...:user/once-local`.
 
-## Step D — provision infrastructure (idempotent)
+## Step D: provision infrastructure (idempotent)
 
 ```bash
 cd backend && AWS_PROFILE=once uv run python scripts/provision_aws.py
@@ -64,7 +64,7 @@ Creates (checking-before-creating): DynamoDB `ONCE_Skills` (PK `skillId`, GSI
 on-demand), and the private evidence bucket (all four public-access blocks,
 default SSE-S3, no bucket policy).
 
-## Step E — AI inference (explicit provider)
+## Step E: AI inference (explicit provider)
 
 Bedrock is not used (see [AWS_EVIDENCE.md](AWS_EVIDENCE.md#ai-inference-what-is-not-aws-stated-plainly)).
 Pick exactly one provider in `backend/.env`:

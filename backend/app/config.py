@@ -39,9 +39,13 @@ class Settings(BaseSettings):
     openai_model: str = "qwen2.5-coder:7b"
     # Separate model for photos (must be vision-capable). Empty = same as openai_model.
     openai_vision_model: str = ""
-    # Google AI Studio (free tier) via the Interactions API.
+    # Google AI Studio (free tier) via the Interactions API. Gemini 3.8 Flash is
+    # the primary model; 3.5 Flash-Lite is used only when the primary reports a
+    # retryable model/availability error. A 403 account-level denial is surfaced
+    # immediately, never hidden behind a fallback.
     gemini_api_key: str = ""
-    gemini_model_id: str = "gemini-3.5-flash-lite"
+    gemini_model_id: str = "gemini-3.8-flash"
+    gemini_fallback_model_id: str = "gemini-3.5-flash-lite"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

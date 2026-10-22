@@ -2,11 +2,11 @@
 
 Two explicitly-selected providers, never auto-substituted:
 
-- ``openai-compatible`` — any OpenAI-compatible endpoint. Defaults to a local
+- ``openai-compatible``, any OpenAI-compatible endpoint. Defaults to a local
   Ollama server, which is what the developer machine runs for the demo; the
   same code works with Groq/OpenRouter/any hosted endpoint by changing
   ``OPENAI_BASE_URL``/``OPENAI_MODEL``.
-- ``gemini`` — Google AI Studio's Interactions API (free tier).
+- ``gemini``, Google AI Studio's Interactions API (free tier).
 
 The provider is chosen with ``INFERENCE_PROVIDER`` and is labeled in every
 response (``engine``), ``/health`` and the UI. ONCE never claims the inference
@@ -86,7 +86,7 @@ def _error_detail(resp: httpx.Response) -> str:
     """Extract a short provider error message without leaking credentials."""
     try:
         body = resp.json()
-    except Exception:  # noqa: BLE001 — error text is best-effort only
+    except Exception:  # noqa: BLE001, error text is best-effort only
         return f"HTTP {resp.status_code}"
     if isinstance(body, dict):
         err = body.get("error")
@@ -118,6 +118,25 @@ def _post_with_retries(url: str, *, headers: dict, body: dict, timeout: float = 
     raise ProviderUnavailable(f"provider request failed: {last_exc}")
 
 
+def _gemini_request(model: str, content: list[dict], system: str | None) -> tuple[httpx.Response, int]:
+    settings = get_settings()
+    body: dict[str, Any] = {
+        "model": model,
+        "input": content,
+        "response_format": {"type": "text", "mime_type": "application/json"},
+    }
+    if system:
+        body["system_instruction"] = system + _SYSTEM_SUFFIX
+    return _post_with_retries(
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
+        headers={
+            "x-goog-api-key": settings.gemini_api_key,
+            "content-type": "application/json",
+        },
+        body=body,
+    )
+
+
 def _generate_gemini(user_text: str, system: str | None, image: tuple[bytes, str] | None) -> InferenceResult:
     settings = get_settings()
     if not settings.gemini_api_key:
@@ -133,48 +152,61 @@ def _generate_gemini(user_text: str, system: str | None, image: tuple[bytes, str
             "data": base64.b64encode(image_bytes).decode("ascii"),
             "mime_type": media_type,
         })
-    body: dict[str, Any] = {
-        "model": settings.gemini_model_id,
-        "input": content,
-        "response_format": {"type": "text", "mime_type": "application/json"},
-    }
-    if system:
-        body["system_instruction"] = system + _SYSTEM_SUFFIX
-    resp, duration_ms = _post_with_retries(
-        "https://generativelanguage.googleapis.com/v1beta/interactions",
-        headers={"x-goog-api-key": settings.gemini_api_key, "content-type": "application/json"},
-        body=body,
-    )
-    if resp.status_code >= 400:
-        raise ProviderUnavailable(
-            f"gemini refused the request (HTTP {resp.status_code}): {_error_detail(resp)}"
+
+    models = [settings.gemini_model_id]
+    fallback = settings.gemini_fallback_model_id.strip()
+    if fallback and fallback != settings.gemini_model_id:
+        models.append(fallback)
+
+    last_error: str | None = None
+    for index, model in enumerate(models):
+        resp, duration_ms = _gemini_request(model, content, system)
+        if resp.status_code >= 400:
+            last_error = (
+                f"gemini refused the request with {model} "
+                f"(HTTP {resp.status_code}): {_error_detail(resp)}"
+            )
+            # A model-specific availability error can use the fallback. An
+            # account-level 401/403 is not retried: the fallback cannot fix it.
+            if index == 0 and resp.status_code in {404, 429, 500, 502, 503, 504}:
+                logger.warning("gemini primary %s unavailable; trying fallback", model)
+                continue
+            raise ProviderUnavailable(last_error)
+        try:
+            data = resp.json()
+        except json.JSONDecodeError as exc:
+            raise ProviderUnavailable("gemini returned a non-JSON body") from exc
+        text = "".join(
+            part.get("text", "")
+            for step in data.get("steps", [])
+            if step.get("type") == "model_output"
+            for part in step.get("content", [])
+            if part.get("type") == "text"
+        ).strip()
+        if not text:
+            text = str(data.get("output_text") or data.get("text") or "").strip()
+        if not text:
+            raise ProviderUnavailable("gemini returned no text for the request")
+        usage = data.get("usage", {})
+        result = InferenceResult(
+            text=text,
+            provider="gemini",
+            model_id=model,
+            duration_ms=duration_ms,
+            input_tokens=usage.get("total_input_tokens"),
+            output_tokens=usage.get("total_output_tokens"),
+            request_id=data.get("id") or resp.headers.get("x-goog-request-id"),
         )
-    try:
-        data = resp.json()
-    except json.JSONDecodeError as exc:
-        raise ProviderUnavailable("gemini returned a non-JSON body") from exc
-    text = "".join(
-        part.get("text", "")
-        for step in data.get("steps", [])
-        if step.get("type") == "model_output"
-        for part in step.get("content", [])
-        if part.get("type") == "text"
-    )
-    usage = data.get("usage", {})
-    result = InferenceResult(
-        text=text,
-        provider="gemini",
-        model_id=settings.gemini_model_id,
-        duration_ms=duration_ms,
-        input_tokens=usage.get("total_input_tokens"),
-        output_tokens=usage.get("total_output_tokens"),
-        request_id=data.get("id") or resp.headers.get("x-goog-request-id"),
-    )
-    logger.info(
-        "inference provider=gemini model=%s duration_ms=%d in=%s out=%s",
-        result.model_id, result.duration_ms, result.input_tokens, result.output_tokens,
-    )
-    return result
+        logger.info(
+            "inference provider=gemini model=%s duration_ms=%d in=%s out=%s fallback=%s",
+            result.model_id,
+            result.duration_ms,
+            result.input_tokens,
+            result.output_tokens,
+            index > 0,
+        )
+        return result
+    raise ProviderUnavailable(last_error or "gemini request failed")
 
 
 def _generate_openai_compatible(

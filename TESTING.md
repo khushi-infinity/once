@@ -1,6 +1,6 @@
 # Testing ONCE
 
-Everything below was run on 2026-10-21. Commands are copy-pasteable.
+Everything below was run on 2026-10-22. Commands are copy-pasteable.
 
 ## 1. Backend static + unit/integration tests
 
@@ -10,18 +10,18 @@ uv run ruff check .
 APP_MODE=mock uv run pytest -q
 ```
 
-Expected: `All checks passed!` and `14 passed, 2 skipped` (the two live-store
+Expected: `All checks passed!` and `17 passed, 2 skipped` (the two live-store
 tests skip without AWS). The suite covers health, skill lifecycle,
 ownership/sharing (including learner-side listing and revocation), six-item
 save/reload, teach extraction, grounded recall (alias match, no-invent 404,
 sharing), session progression, wrong-event rejection, wrong-DOM-element
-rejection and versioned updates.
+rejection, versioned updates, and the Gemini adapter's primary/fallback/403 behavior.
 
 `backend/.env` may set `APP_MODE=live`; the explicit `APP_MODE=mock` above keeps
 the offline suite deterministic. Live mode:
 
 ```bash
-cd backend && APP_MODE=live AWS_PROFILE=once-local uv run pytest -q   # 16 passed
+cd backend && APP_MODE=live AWS_PROFILE=once-local uv run pytest -q   # 19 passed
 ```
 
 ## 2. Live AWS proofs
@@ -31,14 +31,14 @@ cd backend
 APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_live.py
 ```
 
-Expected: **4/4 PASS** — identity, DynamoDB skill write/read, DynamoDB session
+Expected: **4/4 PASS**, identity, DynamoDB skill write/read, DynamoDB session
 write/read, private S3 roundtrip (with a public-read denial check). Each check
 deletes what it creates.
 
 Full live suite:
 
 ```bash
-cd backend && APP_MODE=live AWS_PROFILE=once-local uv run pytest -q   # 16 passed
+cd backend && APP_MODE=live AWS_PROFILE=once-local uv run pytest -q   # 19 passed
 ```
 
 ## 3. MCP server (independent client + real browser client)
@@ -108,31 +108,36 @@ npm run build
 Expected: no ESLint output and a successful production build with routes `/`,
 `/recall`, `/skills`, `/skills/[skillId]`, `/alexa`, `/demo/photoshare`.
 
-## 5. Manual browser flow (2–3 minutes)
+## 5. Manual browser flow (2-3 minutes)
 
 1. `/health` shows `app_mode: live` and the active inference provider/model.
-2. `/` → type the event-bag paragraph → **Create draft with AI** → verify the
-   engine badge names a real provider/model → edit one item → **Confirm & save**.
-3. `/recall` → reader `demo-teacher` → query with the skill title → tick two
+2. `/` → type the event-bag paragraph → **Create draft** → verify the
+   engine badge names a real provider/model → edit one item → **Save as Skill**.
+3. `/recall` → shown as **You** (label `demo-teacher`) → query with the skill title → tick two
    items → **Check my list** → the remaining required items are labeled
    **Not confirmed**, and the explanation says not confirmed is not proof of
    absence.
-4. `/demo/photoshare` → **Teach by demonstration** → **Start recording** → click
-   *Open album → Select photo → Add tag → Share album* → **Save, share & start
-   learner**.
-5. In learner mode, click a deliberately wrong control: red mismatch, step does
-   not advance. Then click the outlined control: verified, next step.
+4. `/demo/photoshare` → **Teach by showing** → **Start recording** → click
+   *Open album → Select photo → Add tag → Share album* → **Save and help Grandma**.
+5. In learner mode, advance to **Add tag**, click **Share album** first: red
+   mismatch, step does not advance. Then click **Add tag**: verified, next step.
 6. `/alexa` → ask by voice or click a suggestion → inspect the real MCP
    traffic; start the PhotoShare workflow and confirm the learner link opens at
-   step 1 with `#ps-open-album` outlined.
+   step 1 with the Open album control highlighted (the developer evidence shows
+   `#ps-open-album`).
 7. Optional: photo teaching on `/` with a real photo; the engine badge shows the
    vision model (e.g. `qwen2.5vl:3b`).
+8. Optional Gemini adapter check: `cd backend && uv run python scripts/gemini_smoke.py`.
+   It performs a real model listing, text extraction and image extraction. On the
+   developer's current Google project it reports `text=FAIL` and `image=FAIL` with
+   `403 PERMISSION_DENIED`; that is the honest result, not a skipped test.
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
 | `503 GEMINI_API_KEY is not configured` | Set `INFERENCE_PROVIDER=openai-compatible` for local Ollama, or add a key |
+| `403 ... project has been denied access` | Google AI Studio project access is denied. Keep `INFERENCE_PROVIDER=openai-compatible` for the demo, or request model access; ONCE does not fake a Gemini result |
 | `502` on extraction | Provider refused/timed out. Check `ollama list`; the API does not fake a result |
 | `AccessDenied` from AWS | `AWS_PROFILE=once-local` missing/expired, or policy not applied |
 | Shared skill not listed | Grant row missing; re-share. Grants are queried consistently |

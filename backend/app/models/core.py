@@ -1,7 +1,7 @@
 """ONCE core data models.
 
 These mirror the skill-record structure in PRODUCT_SPEC.md. DynamoDB storage
-(Prompt 2) serializes/deserializes exactly these types — the models are the
+(Prompt 2) serializes/deserializes exactly these types, the models are the
 single source of truth.
 """
 from datetime import UTC, datetime

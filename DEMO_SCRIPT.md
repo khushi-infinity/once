@@ -1,4 +1,4 @@
-# ONCE — Demo video script (< 3 minutes)
+# ONCE: Demo video script (< 3 minutes)
 
 Goal: prove **real teaching → real storage → grounded recall → real MCP calls
 → verified guidance**. Lead with the Alexa+ track evidence; do not bury it.
@@ -13,19 +13,20 @@ Goal: prove **real teaching → real storage → grounded recall → real MCP ca
 - Or one command: `./scripts/dev.sh` (live) / `APP_MODE=mock ./scripts/dev.sh` (offline)
 - `/health` shows `app_mode: live` and `openai-compatible`.
 - `/alexa` shows **MCP connected**, protocol **2025-11-25**, **8 tools**.
-- Two browser windows/profiles: **Teacher** (`demo-teacher`) and **Learner**
-  (`demo-learner`).
+- Two browser windows/profiles: the **Teacher** window (shown as **You**) and
+  the **Learner** window (shown as **Grandma**). The server still uses the demo
+  labels `demo-teacher` / `demo-learner`; they are not authentication.
 - Terminal font large enough for the AWS smoke output; close noisy tabs.
 - Record at 1080p or higher; keep the cursor deliberate.
 
-## 0:00–0:12 — Hook
+## 0:00-0:12: Hook
 
-> "Alexa remembers facts. ONCE remembers *how you do things* — and teaches the
+> "Alexa remembers facts. ONCE remembers *how you do things*, and teaches the
 > next person, with proof."
 
 Quick cut of four surfaces: `/alexa`, `/recall`, `/demo/photoshare`, `/skills`.
 
-## 0:12–0:42 — Alexa+ track: a real MCP client, not a mock
+## 0:12-0:42: Alexa+ track: a real MCP client, not a mock
 
 1. Open `/alexa`. Point at the status row: **MCP connected · protocol
    2025-11-25 · 8 tools**.
@@ -40,12 +41,12 @@ Quick cut of four surfaces: `/alexa`, `/recall`, `/demo/photoshare`, `/skills`.
    Alexa+ Add-on tools are select-partner only; this is the allowed simulated
    experience."*
 
-## 0:42–1:12 — Experience A: grounded recall, honest semantics
+## 0:42-1:12: Experience A: grounded recall, honest semantics
 
-1. `/recall` → reader `demo-teacher` → *"what am I missing for the
-   conference?"* → **Ask ONCE**.
+1. `/recall` → shown as **You** → *"what am I missing for the conference?"*
+   → **Ask ONCE**.
 2. Before ticking, point at the linked stored skill (**My Event Bag**, version
-   1, six items) for 3–4 seconds: *"This is the bag I taught earlier; it is a
+   1, six items) for 3-4 seconds: *"This is the bag I taught earlier; it is a
    real record, not a prompt."* If you have 5 spare seconds, open the skill
    detail and show the items.
 3. Tick **Laptop** and **Charger**.
@@ -54,22 +55,26 @@ Quick cut of four surfaces: `/alexa`, `/recall`, `/demo/photoshare`, `/skills`.
 5. Say: *"The stored skill is the source of truth. Unconfirmed is not proof of
    absence."*
 
-## 1:12–2:12 — Experience B: teach a browser workflow, guide a second person
+## 1:12-2:12: Experience B: teach a browser workflow, guide a second person
 
-1. `/demo/photoshare` → **Teach by demonstration** → **Start recording**.
-2. Click *Open album → Select photo → Add tag → Share album*. Show the recorded
-   steps with their real element ids.
-3. **Save, share & start learner**.
-4. In learner mode: the next control is outlined in the live DOM with
-   **Click here**.
-5. Click the **wrong** control first → red mismatch, step stays. Say: *"The
-   server verified the clicked element, not just that a click happened."*
-6. Click the **outlined** control → verified → next step. Complete the workflow
-   and show **Well done!**
-7. Optional 5 seconds: open **My Skills** as the learner to show the shared
-   skill appears; revoke as the teacher.
+1. `/demo/photoshare` → **Teach by showing** → **Start recording**.
+2. Click *Open album → Select photo → Add tag → Share album*. Show the four
+   recorded steps. The consumer view hides selectors; open **Developer
+   evidence** only if you want to show the real element ids.
+3. **Save and help Grandma**. The page switches to the learner view and offers
+   **Copy link** so a second window can join as Grandma.
+4. In learner mode: the next control is highlighted in the live DOM with a blue
+   outline and a specific instruction (*"Click Open album. It is the blue button
+   in the Family album card."*).
+5. Advance to the **Add tag** step, then click **Share album** first → red
+   mismatch, step stays. Say: *"The server verified the clicked element, not
+   just that a click happened."*
+6. Click the **highlighted** control → verified → next step. Complete the
+   workflow and show **completed just now**.
+7. Optional 5 seconds: open **My Skills** as Grandma to show the shared skill
+   appears; revoke as You.
 
-## 2:12–2:37 — AWS proof, no hand-waving
+## 2:12-2:37: AWS proof, no hand-waving
 
 Cut to terminal:
 
@@ -90,12 +95,12 @@ uv run python scripts/mcp_smoke.py
 
 Show `protocol=2025-11-25` and the 8 PASS lines.
 
-## 2:37–2:55 — Close
+## 2:37-2:55: Close
 
 Hard stop at **2:55**. Do not let the edit cross 3:00; the platform rejects it.
 
 > "ONCE: teach once, let it teach anyone, forever. Every answer comes from your
-> stored skill — never invented. The MCP server, the web client, and the AWS
+> stored skill, never invented. The MCP server, the web client, and the AWS
 > data layer are all in the repo."
 
 Show the repository URL and MIT license.

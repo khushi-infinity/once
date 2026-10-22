@@ -1,4 +1,4 @@
-# ONCE — Product Spec
+# ONCE: Product Spec
 
 **Tagline:** Teach once. Let it teach anyone, forever.
 
@@ -12,8 +12,8 @@ Everything else exists to make that one promise work.
 
 ## Users
 
-- **Teacher** — wants to pass on a personal method once (their own packing list, their workflow on a website). Non-technical, possibly older.
-- **Learner** — wants exactly that method, guided step by step, with friendly correction when they go wrong.
+- **Teacher**: wants to pass on a personal method once (their own packing list, their workflow on a website). Non-technical, possibly older.
+- **Learner**: wants exactly that method, guided step by step, with friendly correction when they go wrong.
 
 ## The two experiences that must work
 
@@ -27,14 +27,14 @@ list** (charger ✓, water bottle ✓, pen ✓ → still unconfirmed: extra bag,
 notebook, phone).
 
 Honesty rule: `not_verified ≠ missing`. A photo of a closed bag can never
-declare an item missing — it's inside or unseen, and ONCE says which.
+declare an item missing, it's inside or unseen, and ONCE says which.
 
 ### B. Teach someone how to use a computer (browser guidance)
 
 Teacher records a task in the controlled **PhotoShare** demo app (open contact →
 attach → choose photo → send). Another authorized user opens the same app, and
 ONCE highlights the right element, waits, verifies the actual event, and only
-advances on real success — with Repeat / I'm stuck / Previous always available.
+advances on real success, with Repeat / I'm stuck / Previous always available.
 
 No fake timers "advancing" steps. No predetermined success animation. Changed
 or missing UI elements produce visible errors.
@@ -64,7 +64,7 @@ Teaching sources: `voice | text | photo | camera_demo | screen_demo`.
 ## Design language
 
 - Warm cream background, near-black text, Alexa-blue action color, warm-orange
-  secondary accent, soft 24–28px cards.
+  secondary accent, soft 24-28px cards.
 - Large controls; large microphone; captions for voice; keyboard support;
   reduced-motion respected; the interface *becomes* the task (packing skill →
   checklist; browser workflow → highlight overlay).

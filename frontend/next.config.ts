@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Keep the dev overlay from covering the mobile nav in the demo video.
   devIndicators: false,
+  // Do not regenerate frontend/AGENTS.md on every dev start; the checked-in
+  // copy is already reviewed and this keeps the worktree clean.
+  agentRules: false,
   turbopack: {
     rules: {
       "*.css": {

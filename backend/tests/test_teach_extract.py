@@ -1,4 +1,4 @@
-"""Teach-extraction contract tests (mock mode — deterministic, labeled)."""
+"""Teach-extraction contract tests (mock mode, deterministic, labeled)."""
 import pytest
 from fastapi.testclient import TestClient
 
@@ -36,7 +36,7 @@ def test_mock_extraction_is_labeled_and_grounds_in_teacher_words(mock_mode):
     names = " ".join(i["name"].lower() for i in body["items"])
     for expected in ("charger", "water", "pen", "notebook", "mobile"):
         assert expected in names, f"item '{expected}' missing: {names}"
-    # The draft must never contain 6 hard-coded items — it comes from the text.
+    # The draft must never contain 6 hard-coded items, it comes from the text.
     assert len(body["items"]) >= 5
     assert body["ambiguities"], "mock engine must say it is not AI"
 
@@ -47,7 +47,7 @@ def test_extract_validates_transcript():
 
 
 def test_live_extraction_never_uses_deterministic_parser(monkeypatch):
-    """In live mode the draft engine is a real provider — or a real failure."""
+    """In live mode the draft engine is a real provider, or a real failure."""
     monkeypatch.setenv("APP_MODE", "live")
     get_settings.cache_clear()
     try:
@@ -59,7 +59,7 @@ def test_live_extraction_never_uses_deterministic_parser(monkeypatch):
         engine = (body.get("engine") or {}).get("provider", "")
         assert r.status_code == 200 or r.status_code in (502, 503)
         # With the AI provider unconfigured or failing we surface the real
-        # error — never a deterministic result pretending to be AI.
+        # error, never a deterministic result pretending to be AI.
         assert engine != "deterministic-mock"
         if r.status_code == 502:
             assert "extraction failed" in body["detail"].lower()

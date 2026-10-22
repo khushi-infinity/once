@@ -93,7 +93,7 @@ def update_skill(skill_id: str, req: UpdateSkillRequest, owner_id: str) -> Skill
     if req.steps is not None:
         skill.steps = [SkillStep(**step) for step in req.steps]
     skill.updated_at = utcnow()
-    # Persist for real in every mode — get_skill returns a fresh object in
+    # Persist for real in every mode, get_skill returns a fresh object in
     # DynamoDB mode, so the mutation must be written back explicitly.
     return get_store().update_skill_from_model(skill)
 
@@ -133,7 +133,7 @@ def verify_step(
     order: int,
     element_id: str | None = None,
 ) -> VerifyStepResponse:
-    """The learner's event must match the step, and — for browser workflows —
+    """The learner's event must match the step, and, for browser workflows -
     the recorded DOM element. A mismatch never advances the session.
     """
     try:

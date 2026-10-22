@@ -1,6 +1,6 @@
 """DynamoDB-backed skill/session store (live mode).
 
-Same interface as the in-memory store; no scans — queries only. Adds a GSI on
+Same interface as the in-memory store; no scans, queries only. Adds a GSI on
 owner for list-by-owner without full-table reads.
 """
 from threading import Lock
@@ -76,7 +76,7 @@ class DynamoSkillStore:
                 s = Skill.model_validate(item)
                 by_id[s.skill_id] = s
         # shared-to-learner: one grant row per (learner, skill) keeps listing
-        # query-only — no scan of the whole skills table.
+        # query-only, no scan of the whole skills table.
         grants = self._grants.query(
             KeyConditionExpression=Key("learnerId").eq(reader_id),
             ConsistentRead=True,

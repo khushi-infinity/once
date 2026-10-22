@@ -98,6 +98,7 @@ export default function SkillsPage() {
   }, [skills, filter, search]);
 
   const loading = skills === null && error === null;
+  const demoLibrary = !!skills?.length && skills.every((s) => s.skill_id.startsWith("demo-"));
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-10 sm:px-6">
@@ -109,8 +110,13 @@ export default function SkillsPage() {
               My Skills
             </h1>
             <p className="mt-2 text-sm font-semibold text-muted">
-              Things you&apos;ve taught me — and skills shared with you.
+              Things you&apos;ve taught me, and skills shared with you.
             </p>
+            {demoLibrary && (
+              <span className="mt-2 inline-block rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-900">
+                Demo library · seeded examples
+              </span>
+            )}
           </div>
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
             <GridIcon className="size-5" />
@@ -180,7 +186,7 @@ export default function SkillsPage() {
           </span>
           <h2 className="mt-3 text-xl font-extrabold">Nothing here yet.</h2>
           <p className="mx-auto mt-1 max-w-sm text-sm font-semibold text-muted">
-            Teach me one thing — by voice, text or a photo — and it will live here.
+            Teach me one thing, by voice, text or a photo, and it will live here.
           </p>
           <Link
             href="/"
@@ -220,6 +226,11 @@ export default function SkillsPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-extrabold leading-tight">
                       {s.title}
+                      {demoLibrary && (
+                        <span className="ml-1.5 align-middle rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide text-amber-900">
+                          Example
+                        </span>
+                      )}
                     </span>
                     <span className="mt-1 flex items-center gap-1.5 truncate text-[11px] font-bold text-muted">
                       <span className="truncate">
@@ -240,11 +251,11 @@ export default function SkillsPage() {
         </ul>
       )}
 
-      <section className="app-card-soft mt-6 p-3.5 sm:p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-            Demo reader
-          </span>
+      <details className="app-card-soft mt-6 p-3.5 sm:p-4">
+        <summary className="cursor-pointer text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+          Developer: demo profile
+        </summary>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -260,10 +271,10 @@ export default function SkillsPage() {
           </button>
         </div>
         <p className="mt-2 text-[10px] font-bold text-muted">
-          Signed in as <span className="text-foreground">{readerId}</span> · shared skills appear here
-          only while the owner&apos;s grant is active.
+          The demo profile is not authentication. The server still checks ownership and every
+          active share grant.
         </p>
-      </section>
+      </details>
     </div>
   );
 }

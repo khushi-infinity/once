@@ -6,7 +6,6 @@ import { Suspense, useEffect, useState } from "react";
 
 import {
   ArrowRightIcon,
-  BagIcon,
   CheckIcon,
   ChatIcon,
   LockIcon,
@@ -30,6 +29,13 @@ const TYPE_EMOJI: Record<SkillType, string> = {
   checklist: "🗒️",
 };
 
+const SOURCE_LABEL: Record<string, string> = {
+  text: "Typed",
+  voice: "Spoken",
+  photo: "From a photo",
+  screen_demo: "By demonstration",
+};
+
 function SkillDetailPage() {
   const params = useParams<{ skillId: string }>();
   const router = useRouter();
@@ -38,7 +44,7 @@ function SkillDetailPage() {
   const [readerInput, setReaderInput] = useState("demo-teacher");
   const [skill, setSkill] = useState<Skill | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [learner, setLearner] = useState("demo-learner");
+  const learner = "demo-learner";
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -94,7 +100,7 @@ function SkillDetailPage() {
       const started = await api<{ session_id: string; step_order: number | null }>("/api/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skill_id: skill.skill_id, learner_id: learner }),
+        body: JSON.stringify({ skill_id: skill.skill_id, learner_id: learner, restart: true }),
       });
       const target = `/demo/photoshare?session_id=${encodeURIComponent(started.session_id)}&learner_id=${encodeURIComponent(learner)}&skill_id=${encodeURIComponent(skill.skill_id)}`;
       router.push(target);
@@ -114,7 +120,7 @@ function SkillDetailPage() {
             Private by default
           </span>
           {skill && (
-            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-accent">v{skill.version}</span>
+            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-accent">Saved</span>
           )}
         </div>
       </div>
@@ -163,10 +169,10 @@ function SkillDetailPage() {
               )}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-extrabold text-muted">
-                  owner {skill.owner_id}
+                  {skill.owner_id === "demo-teacher" ? "Taught by you" : "Shared with you"}
                 </span>
                 <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-extrabold text-muted">
-                  {skill.source.replaceAll("_", " ")}
+                  {SOURCE_LABEL[skill.source] ?? "Saved"}
                 </span>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
@@ -175,7 +181,7 @@ function SkillDetailPage() {
                       : "bg-surface-2 text-muted"
                   }`}
                 >
-                  {skill.visibility}
+                  {skill.visibility === "shared" ? "Shared" : "Private"}
                 </span>
               </div>
             </div>
@@ -205,23 +211,18 @@ function SkillDetailPage() {
                   <ShareIcon className="size-5" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-extrabold tracking-[-0.02em]">Guide someone else</h2>
+                  <h2 className="text-lg font-extrabold tracking-[-0.02em]">Help someone do it</h2>
                   <p className="mt-0.5 text-xs font-semibold leading-relaxed text-muted">
-                    Share the skill, then start a session. They get the next step with a real
-                    highlight — a wrong click does not advance.
+                    Share it, then start helping. The next control is highlighted; a wrong click is
+                    checked and does not advance.
                   </p>
                 </div>
               </div>
               <div className="p-4 sm:p-5">
-                <label htmlFor="learner" className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                  Learner
-                </label>
-                <input
-                  id="learner"
-                  value={learner}
-                  onChange={(e) => setLearner(e.target.value)}
-                  className="mt-1 w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-bold outline-none focus:border-accent"
-                />
+                <div className="flex items-center justify-between rounded-full bg-surface-2 px-4 py-2.5">
+                  <span className="text-xs font-bold text-muted">Helping</span>
+                  <span className="text-sm font-extrabold">Grandma</span>
+                </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <button
                     type="button"
@@ -229,7 +230,7 @@ function SkillDetailPage() {
                     disabled={busy}
                     className="rounded-full border border-border bg-surface px-3 py-2.5 text-xs font-extrabold transition hover:border-accent disabled:opacity-50"
                   >
-                    Share
+                    Share with Grandma
                   </button>
                   <button
                     type="button"
@@ -237,7 +238,7 @@ function SkillDetailPage() {
                     disabled={busy}
                     className="rounded-full border border-border bg-surface px-3 py-2.5 text-xs font-extrabold text-muted transition hover:border-red-300 hover:text-danger disabled:opacity-50"
                   >
-                    Revoke
+                    Stop sharing
                   </button>
                   <button
                     type="button"
@@ -245,13 +246,12 @@ function SkillDetailPage() {
                     disabled={busy}
                     className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-accent-deep disabled:opacity-50 sm:col-span-1"
                   >
-                    Start session
+                    Start helping
                     <ArrowRightIcon className="size-3.5" />
                   </button>
                 </div>
                 <p className="mt-2 text-[10px] font-bold text-muted">
-                  Sharing is enforced server-side: the learner can read and run the skill, never edit
-                  or delete it.
+                  Only people you share with can use it. They cannot edit or delete it.
                 </p>
               </div>
             </section>
@@ -276,7 +276,7 @@ function SkillDetailPage() {
                     <span className="min-w-0 flex-1 text-sm font-extrabold">{item.name}</span>
                     {item.required && (
                       <span className="hidden rounded-full bg-surface-2 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-muted sm:inline">
-                        required
+                        must-have
                       </span>
                     )}
                     <span className="font-mono text-[10px] font-bold text-muted/70">
@@ -309,11 +309,6 @@ function SkillDetailPage() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold leading-relaxed">{step.instruction}</p>
-                      {step.target_element_id && (
-                        <p className="mt-1 font-mono text-[10px] font-bold text-muted">
-                          target: #{step.target_element_id} · {step.expected_event ?? "any event"}
-                        </p>
-                      )}
                     </div>
                   </li>
                 ))}
@@ -321,11 +316,12 @@ function SkillDetailPage() {
             )}
           </section>
 
-          <section className="app-card-soft mt-4 p-3.5 sm:p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                Demo reader
-              </span>
+          <details className="app-card-soft mt-4 p-3.5 sm:p-4">
+            <summary className="cursor-pointer text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+              Developer details
+            </summary>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-extrabold text-muted">Demo profile</span>
               <input
                 value={readerInput}
                 onChange={(e) => setReaderInput(e.target.value)}
@@ -344,11 +340,21 @@ function SkillDetailPage() {
                 Switch
               </button>
             </div>
-            <p className="mt-2 flex items-center gap-1 text-[10px] font-bold text-muted">
-              <BagIcon className="size-3" />
-              Stored as {skill.skill_id} · {skill.visibility === "shared" ? "shared with you" : "only you"}
+            <div className="mt-2 space-y-1 font-mono text-[10px] font-bold text-muted">
+              <p>skill id: {skill.skill_id}</p>
+              {skill.steps
+                .filter((s) => s.target_element_id)
+                .map((s) => (
+                  <p key={s.order}>
+                    step {s.order + 1}: #{s.target_element_id} · {s.expected_event ?? "any event"}
+                  </p>
+                ))}
+            </div>
+            <p className="mt-2 text-[10px] font-bold text-muted">
+              The demo profile is not authentication. Ownership and share grants are checked on
+              the server.
             </p>
-          </section>
+          </details>
         </>
       )}
     </div>

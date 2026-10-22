@@ -1,11 +1,11 @@
-# ONCE — Architecture
+# ONCE: Architecture
 
 ## Product shape
 
 Five user-facing destinations: **Teach** (`/`), **Recall** (`/recall`),
 **My Skills** (`/skills`, `/skills/[id]`), the **PhotoShare demo**
 (`/demo/photoshare`) and the **Alexa+ MCP surface** (`/alexa`). Under them, the
-concepts below exist in code — not just names in a UI.
+concepts below exist in code, not just names in a UI.
 
 | Concept | Actual responsibility today |
 | --- | --- |
@@ -34,7 +34,7 @@ SkillStore interface (ownership + share-grant checks server-side)
              + private S3 evidence bucket
    │
    ▼
-Inference (explicit provider) — proposes structure only.
+Inference (explicit provider): proposes structure only.
 A human confirms; Pydantic validates; only then is a Skill persisted.
 ```
 
@@ -61,9 +61,9 @@ calls so the claim is inspectable.
    confirmed*, never as proof of absence.
 3. **Ownership and sharing are server-side.** Wrong-reader access returns 404
    (no existence leak). Sharing writes a `(learnerId, skillId)` grant row, so
-   learner-side listing stays query-only — no table scans.
+   learner-side listing stays query-only, no table scans.
 4. **Auth never uses model output.**
-5. **Versioned skill updates** (`PATCH` bumps `version`) — no silent destroy.
+5. **Versioned skill updates** (`PATCH` bumps `version`), no silent destroy.
 6. **Failure is never masked.** Live-mode failures surface as errors; mock is
    opt-in and labeled in `/health`, extraction responses and the UI.
 7. **No credentials in the browser.** AWS identity comes from the server-side
@@ -86,5 +86,9 @@ The MCP app is mounted in the FastAPI process at `/mcp` (the same process and
 store as the HTTP API; a standalone process is kept for the smoke client). Set
 `MCP_URL` for the Next.js rewrite. Local inference is the demo default; a hosted
 OpenAI-compatible endpoint or Gemini can be selected with env vars without code
-changes. The hackathon FAQ does not require a hosted URL for the Alexa+ track;
+changes. The Gemini adapter uses `gemini-3.8-flash` with
+`gemini-3.5-flash-lite` only for model/availability errors; a project-level 403
+is surfaced immediately. The current project is denied at the provider level,
+so the checked-in demo stays on the local provider and the smoke test reports
+the real 403. The hackathon FAQ does not require a hosted URL for the Alexa+ track;
 a locally runnable public repo plus the video is enough.

@@ -2,7 +2,7 @@
 
 Prompt 1 ships an in-memory implementation so the whole teach→save→retrieve
 flow runs end-to-end with zero cloud dependencies. Prompt 2 replaces this with
-a DynamoDB implementation behind the SAME interface — nobody downstream may
+a DynamoDB implementation behind the SAME interface, nobody downstream may
 reach around this module.
 """
 import uuid

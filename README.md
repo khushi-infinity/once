@@ -4,8 +4,8 @@
 
 ONCE is a multimodal personal skill-memory application built for the
 *Build, Ship, Shape: Amazon Developer Hackathon 2026* (primary track: **Alexa+**,
-mini challenge: **AWS Builder**). A person teaches a personal method — by
-speaking, typing, or showing a photo — or by demonstrating a browser task. ONCE
+mini challenge: **AWS Builder**). A person teaches a personal method, by
+speaking, typing, or showing a photo, or by demonstrating a browser task. ONCE
 turns that teaching into a structured, persistent **Skill**. Later, the original
 user or someone they authorize can retrieve it, follow it, and get grounded
 feedback when reality differs from what was taught.
@@ -22,9 +22,8 @@ grounded in stored skill records, never invented by a language model.
    answer is computed from the stored skill and says plainly that unconfirmed is
    not proof of absence.
 2. **Browser workflow → second learner guided with a real DOM highlight**
-   Open `/demo/photoshare`, choose *Teach by demonstration*, record
-   *open album → select photo → add tag → share*, save + share + start a learner
-   session. The learner view outlines the exact recorded control in the live
+   Open `/demo/photoshare`, choose *Teach by showing*, record
+   *open album → select photo → add tag → share*, then **Save and help Grandma**. The learner view outlines the exact recorded control in the live
    DOM. A wrong click returns a server-side mismatch and does **not** advance.
 
 ## Alexa+ track fit (what is and is not claimed)
@@ -57,12 +56,12 @@ frontend/    Next.js 16 + TypeScript + Tailwind 4; /alexa MCP client
 backend/     FastAPI + Pydantic 2; DynamoDB/S3 stores; MCP server
 ```
 
-- `backend/app/routers/` — health, skills/sessions, teach extraction, recall
-- `backend/app/services/` — stores, inference providers, recall, learning engine
-- `backend/app/mcp_server.py` — MCP tools over Streamable HTTP
-- `frontend/lib/mcp.ts` — browser Streamable HTTP MCP client
-- `frontend/app/alexa/page.tsx` — simulated Alexa+ experience + voice + traffic
-- `backend/scripts/` — AWS provisioning, live smoke, MCP client smoke
+- `backend/app/routers/`, health, skills/sessions, teach extraction, recall
+- `backend/app/services/`, stores, inference providers, recall, learning engine
+- `backend/app/mcp_server.py`, MCP tools over Streamable HTTP
+- `frontend/lib/mcp.ts`, browser Streamable HTTP MCP client
+- `frontend/app/alexa/page.tsx`, simulated Alexa+ experience + voice + traffic
+- `backend/scripts/`, AWS provisioning, live smoke, MCP client smoke
 
 ## Run locally
 
@@ -74,7 +73,7 @@ Prerequisites: Node 22+, [uv](https://docs.astral.sh/uv/), and
 ollama pull qwen2.5-coder:7b
 ollama pull qwen2.5vl:3b
 
-# 1. Backend (port 8000) — also serves the MCP endpoint at /mcp
+# 1. Backend (port 8000): also serves the MCP endpoint at /mcp
 cd backend && uv sync
 cp .env.example .env          # then set APP_MODE + AWS profile (see AWS_SETUP.md)
 uv run uvicorn app.main:app --port 8000
@@ -113,8 +112,14 @@ reports the active provider.
   `OPENAI_VISION_MODEL=qwen2.5vl:3b`). The same code works with Groq,
   OpenRouter or another hosted endpoint by changing the env vars.
 - `gemini`: Google AI Studio via the Interactions API
-  (`GEMINI_API_KEY`, `GEMINI_MODEL_ID`). Free tier. If the key's project is
-  denied, the API returns an honest 503/502 — it does not fall back.
+  (`GEMINI_API_KEY`, `GEMINI_MODEL_ID=gemini-3.8-flash`,
+  `GEMINI_FALLBACK_MODEL_ID=gemini-3.5-flash-lite`). The adapter retries the
+  fallback only for model/availability errors. An account-level 403 is surfaced
+  as an honest error, never replaced by a mock. The checked-in runtime uses
+  `openai-compatible` because the developer's Google project currently returns
+  403 PERMISSION_DENIED for generation even though model listing succeeds.
+  `cd backend && uv run python scripts/gemini_smoke.py` reproduces the real
+  result without changing the demo runtime.
 
 Mock mode (`APP_MODE=mock`) uses a deterministic, clearly-labeled non-AI
 splitter for text and refuses photo extraction (no vision in mock mode).
@@ -123,7 +128,7 @@ splitter for text and refuses photo extraction (no vision in mock mode).
 
 `APP_MODE=live` makes every storage call real: DynamoDB for skills, sessions and
 share grants; private S3 for consented evidence; a least-privilege IAM identity
-(`once-local`). Failures surface as errors — never as fakes. Setup is in
+(`once-local`). Failures surface as errors, never as fakes. Setup is in
 [AWS_SETUP.md](AWS_SETUP.md); reproducible evidence is in
 [AWS_EVIDENCE.md](AWS_EVIDENCE.md).
 
@@ -153,11 +158,11 @@ skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 
 ## Docs
 
-- [SUBMISSION.md](SUBMISSION.md) — Devpost text, track fit, judge quickstart
-- [TESTING.md](TESTING.md) — commands + expected results
-- [DEMO_SCRIPT.md](DEMO_SCRIPT.md) — <3 minute recording plan
-- [AWS_EVIDENCE.md](AWS_EVIDENCE.md) — reproducible AWS proofs
-- [FRICTION_LOG.md](FRICTION_LOG.md) — honest AWS/Alexa+/MCP tooling feedback
+- [SUBMISSION.md](SUBMISSION.md), Devpost text, track fit, judge quickstart
+- [TESTING.md](TESTING.md), commands + expected results
+- [DEMO_SCRIPT.md](DEMO_SCRIPT.md), <3 minute recording plan
+- [AWS_EVIDENCE.md](AWS_EVIDENCE.md), reproducible AWS proofs
+- [FRICTION_LOG.md](FRICTION_LOG.md), honest AWS/Alexa+/MCP tooling feedback
 
 ## Current status (honest)
 
@@ -172,11 +177,11 @@ skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 | MCP server over Streamable HTTP (protocol **2025-11-25**) with 8-check independent client smoke | |
 | `/alexa` real browser MCP client with voice input, spoken replies, and visible JSON-RPC traffic | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |
-| Backend **16 live tests** / 14 mock tests passing; frontend lint + production build clean | |
+| Backend **19 live tests** / 17 mock tests passing; frontend lint + production build clean | |
 
 A public hosted URL is **not required** by the hackathon FAQ; a locally runnable
 public repo plus the demo video is enough. If a URL is added later, it must be a
-genuine working deployment — no static mock.
+genuine working deployment, no static mock.
 
 ### Demo-only, clearly labeled
 
@@ -198,4 +203,4 @@ model-access constraint that shaped this choice is documented in
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The repository is public (per hackathon rules).
+MIT, see [LICENSE](LICENSE). The repository is public (per hackathon rules).

@@ -12,7 +12,7 @@ Run with the *admin* profile (one-time setup, e.g. the `aws login` session):
 
     cd backend && AWS_PROFILE=once uv run python scripts/provision_aws.py
 
-The application/runtime itself never needs these admin privileges — it runs as
+The application/runtime itself never needs these admin privileges, it runs as
 the scoped IAM user described in AWS_SETUP.md (rw only on these two tables and
 the evidence objects).
 """

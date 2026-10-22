@@ -139,7 +139,7 @@ export default function RecallPage() {
             </h1>
             <p className="mt-2 max-w-md text-sm font-semibold leading-relaxed text-muted">
               I answer only from skills you actually taught me. If it isn&apos;t stored, I&apos;ll
-              say so — I won&apos;t invent a list.
+              say so, I won&apos;t invent a list.
             </p>
           </div>
           <div className="hidden sm:block">
@@ -149,20 +149,30 @@ export default function RecallPage() {
       </section>
 
       <section className="app-card mt-5 overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-4 py-3 sm:px-5">
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
             <ChatIcon className="size-4" />
           </span>
-          <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Demo reader
+          <span className="min-w-0 flex-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+            Asking as <span className="text-foreground">You</span>
           </span>
-          <input
-            value={reader}
-            onChange={(e) => setReader(e.target.value)}
-            aria-label="Demo reader identity"
-            title="Demo identity, not authentication. Server-side ownership and share checks are real."
-            className="min-w-0 flex-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-extrabold outline-none focus:ring-2 focus:ring-accent/30"
-          />
+          <details className="relative">
+            <summary className="cursor-pointer rounded-full border border-border bg-surface px-3 py-1.5 text-[10px] font-extrabold text-muted">
+              Developer
+            </summary>
+            <div className="mt-2 flex items-center gap-2 rounded-[14px] border border-border bg-surface p-2">
+              <label htmlFor="demo-reader" className="text-[10px] font-extrabold text-muted">
+                Demo profile
+              </label>
+              <input
+                id="demo-reader"
+                value={reader}
+                onChange={(e) => setReader(e.target.value)}
+                title="Demo identity, not authentication. Server-side ownership and share checks are real."
+                className="min-w-0 flex-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-extrabold outline-none focus:ring-2 focus:ring-accent/30"
+              />
+            </div>
+          </details>
         </div>
 
         <div className="bg-gradient-to-b from-accent-soft/60 to-transparent p-4 sm:p-5">

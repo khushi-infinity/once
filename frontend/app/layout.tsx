@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ONCE — Teach once. Let it teach anyone, forever.",
+  title: "ONCE: Teach once. Let it teach anyone, forever.",
   description:
     "A multimodal personal skill-memory app: teach by voice, text or photo, then recall what you need and guide someone else.",
 };
@@ -40,10 +40,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Suspense>
         <main className="flex-1">{children}</main>
         <footer className="mx-auto hidden w-full max-w-5xl px-6 pb-8 pt-6 text-center text-xs font-semibold text-muted md:block">
-          ONCE — personal skill memory. Built for the Amazon Developer Hackathon 2026.
+          ONCE: personal skill memory. Built for the Amazon Developer Hackathon 2026.
           <span className="mt-1 block text-[10px] font-bold text-muted/80">
-            Demo identities are labels, not authentication. Ownership and sharing are enforced
-            server-side; AWS credentials never reach the browser.
+            A hackathon demo. Family names are examples, not real accounts. Sharing rules are
+            checked by the service, and cloud keys never reach your browser.
           </span>
         </footer>
         <Suspense fallback={null}>

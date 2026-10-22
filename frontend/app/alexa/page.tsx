@@ -114,6 +114,12 @@ function parseHave(text: string): string[] {
     .slice(0, 20);
 }
 
+function profileLabel(id: string): string {
+  if (id === "demo-learner") return "Grandma";
+  if (id === "demo-teacher") return "You";
+  return id;
+}
+
 export default function AlexaPage() {
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [error, setError] = useState<string | null>(null);
@@ -170,7 +176,7 @@ export default function AlexaPage() {
         role: "once",
         text:
           `Connected to ${client.serverName ?? "ONCE"} over MCP ${client.protocolVersion ?? ""}. ` +
-          `I can only answer from skills stored for ${reader}. Ask me what you're missing, list your skills, or start a guided workflow.`,
+          `I can only answer from skills stored for ${profileLabel(reader)}. Ask me what you're missing, list your skills, or start a guided workflow.`,
       });
     } catch (e) {
       setStatus("error");
@@ -211,7 +217,7 @@ export default function AlexaPage() {
   async function route(text: string): Promise<Omit<ChatMessage, "id" | "role">> {
     const q = text.toLowerCase();
 
-    // "What am I missing?" — grounded recall, never a generated list.
+    // "What am I missing?", grounded recall, never a generated list.
     const recallReply = async (): Promise<Omit<ChatMessage, "id" | "role">> => {
       const call = await runTool("once_recall_missing", {
         reader_id: reader,
@@ -232,7 +238,7 @@ export default function AlexaPage() {
       return {
         text:
           names.length > 0
-            ? `For “${title}”, ${names.length} required ${names.length === 1 ? "item is" : "items are"} not confirmed: ${names.join(", ")}. Not confirmed is not proof of absence — check before you leave.`
+            ? `For “${title}”, ${names.length} required ${names.length === 1 ? "item is" : "items are"} not confirmed: ${names.join(", ")}. Not confirmed is not proof of absence, check before you leave.`
             : `Every required item in “${title}” is confirmed by what you told me.`,
         tool: call,
         links: value.skill?.skill_id
@@ -245,7 +251,7 @@ export default function AlexaPage() {
       return recallReply();
     }
 
-    // "Start the PhotoShare workflow" — a real learner session, created by MCP.
+    // "Start the PhotoShare workflow", a real learner session, created by MCP.
     if (/\b(start|guide|teach me|walk me through|photoshare)\b/.test(q)) {
       const listed = await runTool("once_list_skills", { reader_id: reader });
       const skills = (Array.isArray(listed.value) ? listed.value : []) as SkillShape[];
@@ -255,7 +261,7 @@ export default function AlexaPage() {
         null;
       if (!workflow) {
         return {
-          text: `No browser workflow is stored for ${reader}. Teach one in the PhotoShare demo first.`,
+          text: `No browser workflow is stored for ${profileLabel(reader)}. Teach one in the PhotoShare demo first.`,
           tool: listed,
           error: true,
           links: [{ href: "/demo/photoshare?mode=teach", label: "Teach a workflow", primary: true }],
@@ -276,13 +282,13 @@ export default function AlexaPage() {
       return {
         text: `Session started for “${workflow.title}”. Next step: ${
           value.instruction ?? "open the first control"
-        }. The learner view will outline the real DOM control and verify each click.`,
+        }. The learner view will highlight the exact control and check each click.`,
         tool: started,
         links: [{ href, label: "Open the guided learner", primary: true }],
       };
     }
 
-    // "What is in my event bag?" / "show my tea skill" — retrieve, don't invent.
+    // "What is in my event bag?" / "show my tea skill", retrieve, don't invent.
     if (/\b(show|open|what is in|what's in|do i know|do you remember)\b/.test(q)) {
       const listed = await runTool("once_list_skills", { reader_id: reader });
       const skills = (Array.isArray(listed.value) ? listed.value : []) as SkillShape[];
@@ -291,7 +297,7 @@ export default function AlexaPage() {
         return {
           text: `I could not find a stored skill matching that. You have ${skills.length} skill${
             skills.length === 1 ? "" : "s"
-          } for ${reader}: ${skills.map((skill) => skill.title).join(", ") || "none"}.`,
+          } for ${profileLabel(reader)}: ${skills.map((skill) => skill.title).join(", ") || "none"}.`,
           tool: listed,
           error: true,
         };
@@ -306,7 +312,7 @@ export default function AlexaPage() {
       const stepNames = (skill.steps ?? []).map((step) => step.instruction);
       return {
         text:
-          `“${skill.title}” is stored for ${skill.owner_id ?? reader}. ` +
+          `“${skill.title}” is stored for ${profileLabel(skill.owner_id ?? reader)}. ` +
           (itemNames.length
             ? `It has ${itemNames.length} items: ${itemNames.join(", ")}.`
             : `It has ${stepNames.length} steps: ${stepNames.slice(0, 5).join(" → ")}.`),
@@ -320,7 +326,7 @@ export default function AlexaPage() {
       return recallReply();
     }
 
-    // "Remember that I pack..." — a draft only. The teacher must confirm it.
+    // "Remember that I pack...", a draft only. The teacher must confirm it.
     if (/\b(teach|remember|save this|learn this)\b/.test(q)) {
       const call = await runTool("once_extract_draft", { transcript: text, skill_type: "packing" });
       const value = call.value as {
@@ -346,7 +352,7 @@ export default function AlexaPage() {
       return {
         text: `I drafted “${title}” with ${count} item${count === 1 ? "" : "s"} using ${
           value.engine?.provider ?? "the configured provider"
-        }. Nothing is saved yet — review and confirm it on the Teach screen.`,
+        }. Nothing is saved yet, review and confirm it on the Teach screen.`,
         tool: call,
         links: [{ href: "/", label: "Review and save the draft", primary: true }],
       };
@@ -359,8 +365,8 @@ export default function AlexaPage() {
       return {
         text:
           skills.length === 0
-            ? `No skills are stored for ${reader} yet. Teach one by voice, text or photo.`
-            : `${reader} has ${skills.length} skill${skills.length === 1 ? "" : "s"}: ${skills
+            ? `No skills are stored for ${profileLabel(reader)} yet. Teach one by voice, text or photo.`
+            : `${profileLabel(reader)} has ${skills.length} skill${skills.length === 1 ? "" : "s"}: ${skills
                 .map((skill) => skill.title)
                 .join("; ")}.`,
         tool: listed,
@@ -375,7 +381,7 @@ export default function AlexaPage() {
     const listed = await runTool("once_list_skills", { reader_id: reader });
     const skills = (Array.isArray(listed.value) ? listed.value : []) as SkillShape[];
     return {
-      text: `I can only answer from stored skills, and that question does not match one. For ${reader} I can see ${
+      text: `I can only answer from stored skills, and that question does not match one. For ${profileLabel(reader)} I can see ${
         skills.length
       } skill${skills.length === 1 ? "" : "s"}: ${
         skills.map((skill) => skill.title).join(", ") || "none"
@@ -471,7 +477,7 @@ export default function AlexaPage() {
             <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-muted">
               This page is a real MCP client. It performs the handshake, lists tools, and calls the
               same self-hosted ONCE MCP server a voice assistant would use. The transcript below is
-              the actual JSON-RPC traffic — no scripted replies.
+              the actual JSON-RPC traffic, no scripted replies.
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <span
@@ -515,13 +521,15 @@ export default function AlexaPage() {
         <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-surface-2/55 px-4 py-3 sm:px-5">
           <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
             <SparkleIcon className="size-3.5 text-accent" />
-            Speaking as
+            Talking as
           </span>
           <select
             value={reader}
             disabled={busy}
             onChange={(e) => {
               const next = e.target.value;
+              const nextLabel =
+                next === "demo-learner" ? "Grandma" : next === "demo-teacher" ? "You" : next;
               setReader(next);
               setTraffic([]);
               setError(null);
@@ -529,18 +537,18 @@ export default function AlexaPage() {
                 {
                   id: newId(),
                   role: "once",
-                  text: `Now speaking as ${next}. I can only answer from skills stored for this identity. Ask me what you're missing, list your skills, or start a guided workflow.`,
+                  text: `Now talking as ${nextLabel}. I can only answer from skills stored for this profile. Ask me what you're missing, list your skills, or start a guided workflow.`,
                 },
               ]);
             }}
-            aria-label="Demo identity for MCP calls"
+            aria-label="Demo profile for MCP calls"
             className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-extrabold outline-none focus:border-accent disabled:opacity-50"
           >
-            <option value="demo-teacher">demo-teacher</option>
-            <option value="demo-learner">demo-learner</option>
+            <option value="demo-teacher">You (teacher)</option>
+            <option value="demo-learner">Grandma (learner)</option>
           </select>
           <span className="hidden text-[10px] font-bold text-muted sm:inline">
-            demo identity · production uses a real account
+            Demo profiles · permissions checked by the server
           </span>
           <div className="ml-auto flex items-center gap-1.5">
             <button
@@ -719,7 +727,7 @@ export default function AlexaPage() {
               </div>
               <p className="mt-2 text-center text-[10px] font-bold text-muted">
                 {listening
-                  ? "Listening — speak naturally, then I'll send the real MCP call."
+                  ? "Listening, speak naturally, then I'll send the real MCP call."
                   : "Every answer is grounded in stored skills. If nothing matches, ONCE says so."}
               </p>
             </form>
