@@ -8,7 +8,7 @@ from app.models.core import Skill, SkillSource, SkillType, Verdict
 
 class InferenceStatus(BaseModel):
     provider: str
-    model: str
+    model: str | None = None
 
 
 class HealthResponse(BaseModel):
@@ -93,6 +93,8 @@ class ListSkillsResponse(BaseModel):
 class StartSessionRequest(BaseModel):
     skill_id: str
     learner_id: str
+    # False = resume the newest open session. True = explicitly start over.
+    restart: bool = False
 
 
 class NextStepResponse(BaseModel):
@@ -118,7 +120,7 @@ class RecallRequest(BaseModel):
     have: list[str] = Field(default_factory=list)
 
 
-class RecallMissingItem(BaseModel):
+class RecallNotConfirmedItem(BaseModel):
     name: str
     aliases: list[str] = Field(default_factory=list)
 
@@ -128,8 +130,10 @@ class RecallResponse(BaseModel):
     query: str
     matched_terms: list[str]
     have: list[str]
-    missing: list[RecallMissingItem]
-    unconfirmed: list[str]
+    # The user's question is "what am I missing?", but the only defensible
+    # answer from stored data is "these required items are not confirmed".
+    # Keeping the field name honest prevents the UI from claiming proof of absence.
+    not_confirmed: list[RecallNotConfirmedItem]
     explanation: str
 
 

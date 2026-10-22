@@ -9,16 +9,18 @@ Working sequence; each phase has a done-criterion checked as real, not aspiratio
 | 3 | Teach: voice/text/photo → draft → confirm → persisted skill | 6 arbitrary items taught→saved→reloaded match; image yields real analysis; no hardcoding | ✅ **done** — `/` teaches by text, browser speech or photo; real extraction via local Ollama (`qwen2.5-coder` text, `qwen2.5vl` vision) with engine metadata; six-item roundtrip test added |
 | 4 | Recall & verification: memory retrieval, missing-item comparison, sessions, sharing UX | Phrase query "going to an event…" returns stored list + unconfirmed items | ✅ **done** — `/recall` grounds on the stored skill, matches aliases, lists not-confirmed required items and never claims proof of absence; sharing enforced server-side |
 | 5 | Browser teaching & guided learning (PhotoShare demo app) | Two separate sessions prove teach→learner handoff; wrong click blocks | ✅ **done** — `/demo/photoshare` records real clicks, saves target ids, shares, starts a learner session; learner view highlights the live DOM element and target-aware verification rejects wrong clicks |
-| 6 | MCP server (Streamable HTTP, spec ≥2025-11-25) + tool orchestration | Independent MCP client exercises tools; real calls visible | ✅ **MCP done** — 8 tools, protocol **2025-11-25**, 8-check independent client smoke. Strands agent framework intentionally **not** claimed: its model providers need cloud inference that this account cannot use; orchestration is explicit Python (extract → confirm → persist → recall → guide), labeled honestly |
-| 7 | UI polish pass | Type check + build clean; flows tested desktop+mobile; no dead buttons | 🟡 **mostly** — production build + ESLint clean; all flows verified over HTTP/API. Manual mobile pass and browser-driven UI run remain |
-| 8 | Release: e2e audit, deploy, evidence docs, friction log, demo video, submit | README/AWS_EVIDENCE/TESTING complete; judge checklist passes | 🟡 **in progress** — docs + evidence complete; demo video, optional deployment, final submission form remain |
+| 6 | MCP server (Streamable HTTP, spec ≥2025-11-25) + tool orchestration | Independent MCP client exercises tools; real calls visible | ✅ **MCP done** — 8 tools, protocol **2025-11-25**, 8-check independent client smoke, plus a real browser MCP client at `/alexa` with visible JSON-RPC traffic. Strands agent framework intentionally **not** claimed: its model providers need cloud inference that this account cannot use; orchestration is explicit Python (extract → confirm → persist → recall → guide), labeled honestly |
+| 7 | UI polish pass | Type check + build clean; flows tested desktop+mobile; no dead buttons | ✅ **done** — production build + ESLint clean; Playwright checks for `/alexa`, `/recall`, and the guided learner passed with no console errors; recall copy now says **not confirmed**, not "missing" |
+| 8 | Release: e2e audit, evidence docs, friction log, demo video, submit | README/AWS_EVIDENCE/TESTING/SUBMISSION complete; judge checklist passes | 🟡 **in progress** — docs + evidence complete; demo video and final Devpost form remain (hosted URL not required by the FAQ) |
 
 ## Verification commands
 
 ```bash
-cd backend && uv run ruff check . && uv run pytest        # 16 tests
-cd backend && AWS_PROFILE=once-local uv run python scripts/smoke_live.py   # 4 live proofs
-cd backend && uv run python scripts/mcp_smoke.py          # 8 MCP checks
+cd backend && uv run ruff check . && APP_MODE=mock uv run pytest   # 14 pass, 2 skip
+cd backend && APP_MODE=live AWS_PROFILE=once-local uv run pytest   # 16 pass
+cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_live.py
+cd backend && uv run python -m app.mcp_server            # keep running for /alexa
+cd backend && uv run python scripts/mcp_smoke.py         # 8 MCP checks
 cd frontend && npm run lint && npm run build
 ```
 

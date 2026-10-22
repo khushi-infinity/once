@@ -41,6 +41,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="flex-1">{children}</main>
         <footer className="mx-auto hidden w-full max-w-5xl px-6 pb-8 pt-6 text-center text-xs font-semibold text-muted md:block">
           ONCE — personal skill memory. Built for the Amazon Developer Hackathon 2026.
+          <span className="mt-1 block text-[10px] font-bold text-muted/80">
+            Demo identities are labels, not authentication. Ownership and sharing are enforced
+            server-side; AWS credentials never reach the browser.
+          </span>
         </footer>
         <Suspense fallback={null}>
           <AppNav />

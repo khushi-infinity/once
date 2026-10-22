@@ -27,16 +27,41 @@ grounded in stored skill records, never invented by a language model.
    session. The learner view outlines the exact recorded control in the live
    DOM. A wrong click returns a server-side mismatch and does **not** advance.
 
+## Alexa+ track fit (what is and is not claimed)
+
+Amazon's hackathon FAQ says the gated Alexa+ Add-on tools are select-partner
+only and cannot be accessed by participants. The allowed path is a self-hosted
+MCP server (spec 2025-11-25+, Streamable HTTP) or Agent Skill, demoed through
+your own web simulator.
+
+ONCE does exactly that:
+
+- `backend/app/mcp_server.py` is a real MCP server with **8 tools** over
+  Streamable HTTP.
+- `/alexa` is a **real browser MCP client**: it performs `initialize`,
+  `notifications/initialized`, `tools/list`, and `tools/call`, shows the
+  JSON-RPC traffic, and hands taught drafts to the review screen instead of
+  dead-ending. The page shows the negotiated protocol, the tool surface, and
+  the actual arguments/result for every answer.
+- The MCP server shares the same store, authorization, recall, and learning
+  logic as the HTTP API. There is no privileged demo path.
+
+We do **not** claim Alexa+ SDK access, Add-on tooling, or real-device
+integration. The UI says so. The real thing is the MCP transport, tools,
+storage, and grounded answers.
+
 ## Repository layout
 
 ```
-frontend/    Next.js 16 + TypeScript + Tailwind 4
+frontend/    Next.js 16 + TypeScript + Tailwind 4; /alexa MCP client
 backend/     FastAPI + Pydantic 2; DynamoDB/S3 stores; MCP server
 ```
 
 - `backend/app/routers/` — health, skills/sessions, teach extraction, recall
 - `backend/app/services/` — stores, inference providers, recall, learning engine
 - `backend/app/mcp_server.py` — MCP tools over Streamable HTTP
+- `frontend/lib/mcp.ts` — browser Streamable HTTP MCP client
+- `frontend/app/alexa/page.tsx` — simulated Alexa+ experience + voice + traffic
 - `backend/scripts/` — AWS provisioning, live smoke, MCP client smoke
 
 ## Run locally
@@ -49,20 +74,31 @@ Prerequisites: Node 22+, [uv](https://docs.astral.sh/uv/), and
 ollama pull qwen2.5-coder:7b
 ollama pull qwen2.5vl:3b
 
-# 1. Backend (port 8000)
+# 1. Backend (port 8000) — also serves the MCP endpoint at /mcp
 cd backend && uv sync
 cp .env.example .env          # then set APP_MODE + AWS profile (see AWS_SETUP.md)
 uv run uvicorn app.main:app --port 8000
 
-# 2. Frontend (port 3000; proxies /api and /health to the backend)
+# 2. Frontend (port 3000; proxies /api, /health and /mcp)
 cd frontend && npm install && npm run dev
 
 # 3. Checks
-cd backend && uv run ruff check . && uv run pytest
+cd backend && uv run ruff check . && APP_MODE=mock uv run pytest
 cd frontend && npm run lint && npm run build
 ```
 
-Open **http://localhost:3000**.
+Or run both with one command:
+
+```bash
+./scripts/dev.sh                 # live AWS mode
+APP_MODE=mock ./scripts/dev.sh   # offline: seeded skills, no AWS/Ollama
+```
+
+Open **http://localhost:3000**. The API process mounts the MCP server at
+`/mcp`, so `/alexa` and the HTTP pages share the same store and learner-session
+state in both live and mock mode. The standalone
+`python -m app.mcp_server` process is optional and used only by the independent
+smoke client.
 
 ### Inference providers (explicit, never auto-switched)
 
@@ -95,45 +131,70 @@ share grants; private S3 for consented evidence; a least-privilege IAM identity
 cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_live.py
 ```
 
-### MCP server
+### MCP server + real browser client
+
+The app itself needs no second process: `app.main` mounts the MCP app at
+`/mcp`. The standalone process is for the independent smoke client:
 
 ```bash
-cd backend && uv run python -m app.mcp_server          # http://127.0.0.1:8765/mcp
-uv run python scripts/mcp_smoke.py                     # independent client, 8 checks
+cd backend && uv run python scripts/mcp_smoke.py       # starts its own :8765 server, 8 checks
 ```
 
 The smoke client prints the negotiated protocol version (**2025-11-25**),
 lists the tools, and exercises read, authz denial, grounded recall, session
 start, correct verification, wrong-element rejection and draft extraction.
 
+Open **http://localhost:3000/alexa** for the same server through a real browser
+MCP client. It shows `initialize`, `tools/list`, and the actual `tools/call`
+arguments/result; use the traffic drawer to inspect them. The Next.js dev proxy
+rewrites `/mcp` to `MCP_URL` (default `http://localhost:8000`) so the browser
+stays same-origin. In **mock mode** the same process also seeds the four demo
+skills, so a judge can run `/alexa` end-to-end without AWS credentials.
+
 ## Docs
 
+- [SUBMISSION.md](SUBMISSION.md) — Devpost text, track fit, judge quickstart
 - [TESTING.md](TESTING.md) — commands + expected results
 - [DEMO_SCRIPT.md](DEMO_SCRIPT.md) — <3 minute recording plan
 - [AWS_EVIDENCE.md](AWS_EVIDENCE.md) — reproducible AWS proofs
-- [FRICTION_LOG.md](FRICTION_LOG.md) — honest AWS tooling feedback
+- [FRICTION_LOG.md](FRICTION_LOG.md) — honest AWS/Alexa+/MCP tooling feedback
 
 ## Current status (honest)
 
 | Working and verified | Still to do before submission |
 | --- | --- |
 | Text, voice (browser speech), and photo teaching UI → editable draft → confirm → persisted skill | Record the <3 min demo video |
-| Real AI extraction with labeled engine metadata (local Ollama text + vision) | Deploy a public demo URL if the submission form requires one |
-| Grounded recall / "what am I missing" with alias matching and honest not-confirmed wording | |
-| Responsive cream/blue UI matching the 8-screen reference (mobile nav, orb, draft review, guided highlight, completion) | |
+| Real AI extraction with labeled engine metadata (local Ollama text + vision) | Submit the Devpost entry with the video and `SUBMISSION.md` |
+| Grounded recall / "what am I missing" with alias matching and **not confirmed** semantics | |
+| Responsive cream/blue UI (mobile nav, orb, draft review, guided highlight, completion) | |
 | Skill CRUD, versioned edits, sharing/revocation, learner sessions | |
 | Browser-workflow teach-by-demonstration + learner mode with real DOM highlight and target-aware verification | |
+| MCP server over Streamable HTTP (protocol **2025-11-25**) with 8-check independent client smoke | |
+| `/alexa` real browser MCP client with voice input, spoken replies, and visible JSON-RPC traffic | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |
-| MCP server over Streamable HTTP (protocol **2025-11-25**) with 8-check client smoke | |
-| Backend **16 tests** passing; frontend lint + production build clean | |
+| Backend **16 live tests** / 14 mock tests passing; frontend lint + production build clean | |
 
-## Why the AI is not on AWS
+A public hosted URL is **not required** by the hackathon FAQ; a locally runnable
+public repo plus the demo video is enough. If a URL is added later, it must be a
+genuine working deployment — no static mock.
 
-Amazon Bedrock was the original plan, but this AWS account is restricted at the
-account level (`ValidationException: Operation not allowed`; every model
-inference quota is 0.0). The adapter was removed rather than shipped dead; the
-story is documented in [FRICTION_LOG.md](FRICTION_LOG.md). ONCE never claims
-AWS AI usage. The AWS Builder story is the verified data layer.
+### Demo-only, clearly labeled
+
+- `demo-teacher` / `demo-learner` are demo identity labels, not authentication.
+  Server-side ownership/share checks are real for the selected id; production
+  would use Cognito or another IdP.
+- Browser guided learning is limited to the controlled PhotoShare app. ONCE does
+  not automate arbitrary third-party sites or use OS-level overlays.
+- Alexa+ Add-on SDK access is not available to hackathon participants and is
+  not claimed. The MCP server and web simulator are the allowed path.
+
+## Inference and AWS scope
+
+Inference is explicit local/hosted OpenAI-compatible; mock mode is a labeled
+deterministic parser. ONCE never claims AWS AI usage. The AWS Builder story is
+the verified data layer (DynamoDB, S3, least-privilege IAM). The account-level
+model-access constraint that shaped this choice is documented in
+[FRICTION_LOG.md](FRICTION_LOG.md).
 
 ## License
 

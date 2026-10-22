@@ -112,7 +112,7 @@ def share_skill(skill_id: str, owner_id: str, learner_id: str, revoke: bool = Fa
 @router.post("/sessions", response_model=NextStepResponse, status_code=status.HTTP_201_CREATED)
 def start_session(req: StartSessionRequest) -> NextStepResponse:
     try:
-        return learning.start_session(req.skill_id, req.learner_id)
+        return learning.start_session(req.skill_id, req.learner_id, restart=req.restart)
     except learning.LearningError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 

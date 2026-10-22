@@ -119,8 +119,8 @@ async def run() -> int:
                     {"reader_id": owner, "query": f"MCP event kit {tag} what am I missing?", "have": ["passport"]},
                 )
                 recalled_body = json.loads(_text(recalled))
-                missing = {m["name"] for m in recalled_body["missing"]}
-                assert missing == {"Charger", "Badge"}, missing
+                not_confirmed = {m["name"] for m in recalled_body["not_confirmed"]}
+                assert not_confirmed == {"Charger", "Badge"}, not_confirmed
                 print("[PASS] once_recall_missing grounded on the stored skill")
 
                 session_tool = await session.call_tool(

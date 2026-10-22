@@ -8,9 +8,9 @@ import {
   BagIcon,
   CheckIcon,
   ChatIcon,
+  HelpIcon,
   MicIcon,
   SparkleIcon,
-  XIcon,
 } from "@/components/icons";
 import { Orb } from "@/components/brand";
 import { api } from "@/lib/api";
@@ -124,7 +124,7 @@ export default function RecallPage() {
     setListening(true);
   }
 
-  const missingCount = result?.missing.length ?? 0;
+  const notConfirmedCount = result?.not_confirmed.length ?? 0;
   const items = found?.skill.items ?? [];
 
   return (
@@ -154,12 +154,13 @@ export default function RecallPage() {
             <ChatIcon className="size-4" />
           </span>
           <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Answer as
+            Demo reader
           </span>
           <input
             value={reader}
             onChange={(e) => setReader(e.target.value)}
-            aria-label="Reader identity"
+            aria-label="Demo reader identity"
+            title="Demo identity, not authentication. Server-side ownership and share checks are real."
             className="min-w-0 flex-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-extrabold outline-none focus:ring-2 focus:ring-accent/30"
           />
         </div>
@@ -224,11 +225,11 @@ export default function RecallPage() {
             <div className="min-w-0 flex-1">
               <p className="eyebrow">Grounded in your saved skill</p>
               <h2 className="mt-0.5 text-lg font-extrabold leading-tight tracking-[-0.02em]">
-                Based on “{found.skill.title}”, here&apos;s what&apos;s missing:
+                Based on “{found.skill.title}”, here&apos;s what to check:
               </h2>
               <p className="mt-1 text-xs font-semibold text-muted">
-                {found.skill.type.replaceAll("_", " ")} · v{found.skill.version} ·{" "}
-                {found.skill.owner_id}
+                Tick what you have. Anything left unticked is <strong>not confirmed</strong>, not
+                proof that it is absent.
               </p>
             </div>
           </div>
@@ -236,8 +237,8 @@ export default function RecallPage() {
           <ul className="divide-y divide-border/50 px-2 sm:px-3">
             {items.map((item) => {
               const isHave = have.has(item.name);
-              const isMissing =
-                result?.missing.some((m) => m.name === item.name) ?? false;
+              const isNotConfirmed =
+                result?.not_confirmed.some((m) => m.name === item.name) ?? false;
               return (
                 <li key={item.name}>
                   <label className="flex cursor-pointer items-center gap-3 rounded-2xl px-2 py-3 transition hover:bg-surface-2/70 sm:px-3">
@@ -262,10 +263,10 @@ export default function RecallPage() {
                         <span className="rounded-full bg-success-soft px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-success">
                           Packed
                         </span>
-                      ) : isMissing ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-danger">
-                          <XIcon className="size-3" />
-                          Missing
+                      ) : isNotConfirmed ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-warm-soft px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#a96822]">
+                          <HelpIcon className="size-3" />
+                          Not confirmed
                         </span>
                       ) : (
                         <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-muted">
@@ -295,7 +296,7 @@ export default function RecallPage() {
               disabled={busy}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-extrabold text-white transition hover:bg-accent disabled:opacity-50"
             >
-              {busy ? "Checking…" : "What's missing?"}
+              {busy ? "Checking…" : "Check my list"}
               {!busy && <ArrowRightIcon className="size-4" />}
             </button>
             <p className="mt-2 text-center text-[10px] font-bold text-muted">
@@ -308,28 +309,30 @@ export default function RecallPage() {
       {result && (
         <section
           className={`mt-4 rounded-[26px] border p-4 sm:p-5 ${
-            missingCount === 0
+            notConfirmedCount === 0
               ? "border-success/25 bg-success-soft"
-              : "border-border bg-surface"
+              : "border-warm/45 bg-surface"
           }`}
         >
           <div className="flex items-start gap-3">
             <span
               className={`grid size-10 shrink-0 place-items-center rounded-full ${
-                missingCount === 0 ? "bg-success text-white" : "bg-danger-soft text-danger"
+                notConfirmedCount === 0
+                  ? "bg-success text-white"
+                  : "bg-warm-soft text-[#a96822]"
               }`}
             >
-              {missingCount === 0 ? (
+              {notConfirmedCount === 0 ? (
                 <CheckIcon className="size-5" />
               ) : (
-                <XIcon className="size-5" />
+                <HelpIcon className="size-5" />
               )}
             </span>
             <div className="min-w-0">
               <h2 className="text-lg font-extrabold tracking-[-0.02em]">
-                {missingCount === 0
-                  ? "You have everything."
-                  : `${missingCount} required ${missingCount === 1 ? "item is" : "items are"} still missing.`}
+                {notConfirmedCount === 0
+                  ? "Everything on this list is confirmed."
+                  : `${notConfirmedCount} required ${notConfirmedCount === 1 ? "item is" : "items are"} not confirmed.`}
               </h2>
               <p className="mt-1 text-sm font-semibold leading-relaxed text-muted">
                 {result.explanation}

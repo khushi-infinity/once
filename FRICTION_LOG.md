@@ -108,6 +108,56 @@ and re-tested after ensuring a valid card was attached.
 
 ---
 
+## 6. Alexa+ Add-on developer tools are select-partner only — no application path (BLOCKER for the obvious build)
+
+- **Date:** 2026-10-22
+- **Task attempted:** connect ONCE to the Alexa+ Add-on developer surface
+  (Category SDK / MCP Toolkit / CLI / Web Simulator) so the demo would be a real
+  Alexa+ integration, not a web simulation.
+- **What happened:** the hackathon FAQ states plainly that the Add-on developer
+  tools are in preview, available to select partners only, and there is
+  **currently no way for hackathon participants to apply for or gain access**.
+  The FAQ also notes that some individual setup-guide pages omit this, which
+  makes the docs look like the tools are generally available.
+- **Impact:** the most obvious Alexa+ implementation was impossible before any
+  code was written. We had to redesign the track proof around a self-hosted MCP
+  server plus our own web client/simulator (the path the FAQ explicitly allows).
+- **Worked around?** Yes: `backend/app/mcp_server.py` (Streamable HTTP, spec
+  2025-11-25) and `/alexa` (real browser MCP client). The UI states that no
+  Alexa+ SDK access is claimed.
+- **Suggestion to Amazon:** put a single, prominent "Hackathon path" callout at
+  the top of every Alexa+ Add-on page: "You do not have access to these tools;
+  build a self-hosted MCP server or Agent Skill and demo it in your own web
+  client." Link a minimal MCP server + browser client sample from that callout.
+  The current split between the FAQ and the setup guides costs participants
+  hours before they discover the gate.
+
+## 7. MCP `structuredContent` vs. multi-block `content` — easy to parse wrong in a browser client
+
+- **Date:** 2026-10-22
+- **Task attempted:** implement a dependency-free browser MCP client for
+  `/alexa` (initialize → notifications/initialized → tools/list → tools/call)
+  and render real tool results.
+- **What happened:** the Python MCP server returns list-returning tools as
+  **multiple `content` text blocks** (one JSON object per item) *and* a
+  `structuredContent` payload whose output schema wraps the list as
+  `{"result": [...]}`. A naive client that concatenates the text blocks produces
+  invalid JSON; a client that reads only `content` misses the structured shape.
+  The page initially reported "no browser workflow" even though the tool had
+  returned four skills.
+- **Impact:** ~30 minutes of debugging; the failure looked like a data bug, not
+  a transport-shape mismatch.
+- **Worked around?** Yes: `frontend/lib/mcp.ts` prefers `structuredContent`,
+  unwraps the single `result` key, and falls back to parsing one-or-many text
+  blocks.
+- **Suggestion to the MCP SDK/docs:** show both shapes side by side in the
+  Streamable HTTP examples, and state explicitly whether clients should prefer
+  `structuredContent` or `content` when both are present. A browser client
+  example would also make the Streamable HTTP + SSE + session-header dance much
+  faster to get right.
+
+---
+
 *Entries in this file count only what we could not self-serve around before
 documenting it. Where we found a documented resolution later, the entry is
 edited to include the link.*

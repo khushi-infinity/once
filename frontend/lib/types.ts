@@ -63,8 +63,7 @@ export type RecallResponse = {
   query: string;
   matched_terms: string[];
   have: string[];
-  missing: { name: string; aliases: string[] }[];
-  unconfirmed: string[];
+  not_confirmed: { name: string; aliases: string[] }[];
   explanation: string;
 };
 

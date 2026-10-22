@@ -12,8 +12,9 @@ Infrastructure recreation (idempotent, one-time admin):
 cd backend && AWS_PROFILE=once uv run python scripts/provision_aws.py
 ```
 
-Last run: 2026-10-21, runtime identity `arn:aws:iam::552952091217:user/once-local`
+Last run: 2026-10-22, runtime identity `arn:aws:iam::552952091217:user/once-local`
 (least-privilege IAM user — the app never runs as root; see AWS_SETUP.md).
+Latest: `smoke_live` **4/4**, live pytest **16 passed**, MCP client smoke **8/8**.
 
 ## Verified claims
 
@@ -26,17 +27,25 @@ Last run: 2026-10-21, runtime identity `arn:aws:iam::552952091217:user/once-loca
 | 5 | Share-grant table supports learner-side listing without scans | `ONCE_Grants` (PK `learnerId`, SK `skillId`); live test share → learner lists → revoke → blocked | **PASS** |
 | 6 | Live-mode store + API tests incl. authorization and target-aware verification | `APP_MODE=live AWS_PROFILE=once-local uv run pytest` | **PASS (16/16)** |
 | 7 | MCP tool calls over Streamable HTTP | `uv run python scripts/mcp_smoke.py` — independent client, protocol **2025-11-25**, 8 checks | **PASS** |
+| 8 | Real browser MCP client, not a mock transcript | `/alexa` — `initialize`, `tools/list`, `tools/call` over Streamable HTTP; traffic drawer shows real arguments/results | **PASS** |
 
 ## Which AWS services ONCE actually uses (AWS Builder answer)
 
 - **Amazon DynamoDB** — the product's memory: skills, share grants, learner
   sessions and progress. Three on-demand tables + GSIs; queries only, no scans.
+  The MCP server reads/writes the same tables through the same store layer.
 - **Amazon S3** — consented teaching evidence in a fully private bucket; skill
   records store object references only.
 - **AWS IAM** — the backend runs with a scoped identity (policy committed at
   `backend/scripts/once-runtime-iam-policy.json`); no root, no keys in the app.
 - **AWS STS** — identity verification in the smoke test.
 - Infrastructure is created idempotently by `backend/scripts/provision_aws.py`.
+
+The browser never receives AWS credentials. It calls the Next.js same-origin
+rewrites (`/api`, `/health`, `/mcp`); the Next.js server and FastAPI process
+(which mounts the MCP app) hold the AWS credential chain. The `/alexa` page
+proves the MCP path is real by showing the negotiated protocol and actual tool
+calls.
 
 ## AI inference (what is *not* AWS, stated plainly)
 

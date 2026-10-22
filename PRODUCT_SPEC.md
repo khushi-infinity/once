@@ -63,16 +63,40 @@ Teaching sources: `voice | text | photo | camera_demo | screen_demo`.
 
 ## Design language
 
-- Warm ivory background, near-black text, one indigo accent.
+- Warm cream background, near-black text, Alexa-blue action color, warm-orange
+  secondary accent, soft 24–28px cards.
 - Large controls; large microphone; captions for voice; keyboard support;
   reduced-motion respected; the interface *becomes* the task (packing skill →
   checklist; browser workflow → highlight overlay).
-- No dashboards, no particles, no metaphor the user must decode.
+- No dashboards, no particles, no metaphor the user must decode. The MCP
+  protocol is visible in an optional developer drawer, not forced into the
+  primary conversation.
+
+## Why this is not a generic assistant
+
+A generic assistant can generate a packing list. ONCE cannot: it may only
+retrieve the list the user actually taught, compare it with what the user
+explicitly confirms, and report the rest as **not confirmed**. A generic
+assistant can describe a workflow. ONCE stores the exact DOM element and
+expected event, outlines it in the live page, and refuses to advance on a wrong
+click. The value is grounded memory + verified guidance, not fluent text.
+
+## Who feels the pain first
+
+- **Families:** an older parent's routines, medication checklist, or "how I
+  close up the house" can be preserved and guided without a screen recording.
+- **Small teams:** the one person who knows the legacy internal tool records it
+  once; the next hire follows verified steps instead of a stale wiki.
+- **Accessibility:** voice-first teaching and spoken step repetition help people
+  who cannot read a long procedure or navigate a dense UI.
 
 ## Non-goals
 
 - No OS-level global overlays or arbitrary third-party website automation
   (guided browser learning happens inside the controlled PhotoShare demo app).
-- No fabricated Alexa+ claims: where official Alexa+ SDK access is unavailable
-  to hackathon participants, we ship our own agentic experience + a real MCP
-  server, labeled truthfully.
+- No fabricated Alexa+ claims: official Alexa+ Add-on SDK access is unavailable
+  to hackathon participants. We ship a real self-hosted MCP server, a real
+  browser MCP client, and a simulated experience, labeled truthfully.
+- No claim that inference runs on AWS. The AWS story is the verified data layer
+  (DynamoDB, S3, IAM); this account's model access is blocked (see
+  `FRICTION_LOG.md`).

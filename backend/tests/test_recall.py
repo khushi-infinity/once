@@ -34,7 +34,7 @@ def _packing_skill(owner: str, title: str = "Conference event bag") -> dict:
     return r.json()
 
 
-def test_recall_returns_stored_skill_and_missing_items():
+def test_recall_returns_stored_skill_and_not_confirmed_items():
     owner = _unique("recall-owner")
     skill = _packing_skill(owner)
 
@@ -49,10 +49,13 @@ def test_recall_returns_stored_skill_and_missing_items():
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["skill"]["skill_id"] == skill["skill_id"]
-    missing = {item["name"] for item in body["missing"]}
-    assert missing == {"HDMI adapter", "Badge", "Water bottle"}
+    not_confirmed = {item["name"] for item in body["not_confirmed"]}
+    assert not_confirmed == {"HDMI adapter", "Badge", "Water bottle"}
     # Alias confirmation works: "phone charger" confirmed "Charger".
-    assert "Charger" not in missing
+    assert "Charger" not in not_confirmed
+    # The API must not emit a "missing" proof-of-absence field.
+    assert "missing" not in body
+    assert "unconfirmed" not in body
     assert "conference" in body["matched_terms"]
 
 
@@ -70,10 +73,10 @@ def test_recall_alias_and_no_false_absence():
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    missing = {item["name"] for item in body["missing"]}
-    assert "Laptop" not in missing
-    assert "HDMI adapter" not in missing
-    assert "Badge" in missing
+    not_confirmed = {item["name"] for item in body["not_confirmed"]}
+    assert "Laptop" not in not_confirmed
+    assert "HDMI adapter" not in not_confirmed
+    assert "Badge" in not_confirmed
     # The wording never claims proof of absence.
     assert "not proof of absence" in body["explanation"]
 

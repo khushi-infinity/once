@@ -19,15 +19,22 @@ class LearningError(Exception):
         self.status_code = status_code
 
 
-def start_session(skill_id: str, learner_id: str) -> NextStepResponse:
+def start_session(
+    skill_id: str, learner_id: str, restart: bool = False
+) -> NextStepResponse:
     store = get_store()
     skill = store.get_skill(skill_id, learner_id)
     if skill is None:
         raise LearningError("skill not found or not accessible")
-    open_sessions = [
-        s for s in store.list_sessions_for_skill(skill_id, learner_id)
-        if s.completed_at is None
-    ]
+    # Default behavior is resume-safe: reopening a skill continues where the
+    # learner stopped. `restart=True` is an explicit "start over" for demos and
+    # for a learner who wants a clean run.
+    open_sessions = []
+    if not restart:
+        open_sessions = [
+            s for s in store.list_sessions_for_skill(skill_id, learner_id)
+            if s.completed_at is None
+        ]
     session = open_sessions[-1] if open_sessions else LearnerSession(
         session_id=uuid.uuid4().hex[:12],
         skill_id=skill.skill_id,

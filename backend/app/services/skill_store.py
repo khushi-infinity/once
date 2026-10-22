@@ -51,10 +51,14 @@ class SkillStore:
 
 
 class InMemorySkillStore(SkillStore):
-    def __init__(self) -> None:
+    def __init__(self, seed_demo: bool = True) -> None:
         self._skills: dict[str, Skill] = {}
         self._sessions: dict[str, LearnerSession] = {}
         self._lock = Lockable()
+        if seed_demo:
+            from app.services.demo_seed import seed_demo_skills
+
+            seed_demo_skills(self)
 
     def create_skill(self, skill: Skill) -> Skill:
         with self._lock:
@@ -145,7 +149,7 @@ def get_store() -> SkillStore:
 
         _store = DynamoSkillStore()
     else:
-        _store = InMemorySkillStore()
+        _store = InMemorySkillStore(seed_demo=settings.seed_demo)
     return _store
 
 

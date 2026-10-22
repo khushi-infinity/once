@@ -1,9 +1,15 @@
 """Prompt-1 smoke tests: health, skill lifecycle, authorization, sessions."""
+import uuid
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
+
+
+def _unique(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
 def test_health():
@@ -12,10 +18,16 @@ def test_health():
     body = r.json()
     assert body["status"] == "ok"
     assert body["app_mode"] in ("mock", "live")  # mode comes from the environment
+    if body["app_mode"] == "mock":
+        # Mock extraction is deterministic; never label it with a cloud model.
+        assert body["inference"]["provider"] == "deterministic-mock"
+        assert body["inference"]["model"] is None
 
 
 def test_create_and_retrieve_skill_authorization():
-    owner = "demo-teacher"
+    # Never use the curated demo identity in a write test: live runs hit the
+    # same DynamoDB table the demo video uses.
+    owner = _unique("authz-teacher")
     r = client.post(
         "/api/skills",
         json={
@@ -122,9 +134,17 @@ def test_learner_session_progression_real_verification():
 
     assert client.get(f"/api/sessions/{session_id}/next", params={"learner_id": learner}).json()["done"] is True
 
+    # restart=true is an explicit new run, not a silent resume.
+    fresh = client.post(
+        "/api/sessions",
+        json={"skill_id": sid, "learner_id": learner, "restart": True},
+    ).json()
+    assert fresh["session_id"] != session_id
+    assert fresh["step_order"] == 0
+
 
 def test_update_bumps_version_without_destroying_original():
-    owner = "demo-teacher"
+    owner = _unique("version-teacher")
     sid = client.post(
         "/api/skills",
         json={"owner_id": owner, "title": "Bag v1", "type": "packing", "source": "text"},

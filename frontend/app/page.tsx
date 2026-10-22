@@ -99,6 +99,51 @@ export default function TeachPage() {
     };
   }, []);
 
+  // A draft taught through /alexa is handed off here so "review and save"
+  // opens the real draft instead of an empty form.
+  useEffect(() => {
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem("once:pending-draft");
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    let pending: { transcript?: string; draft?: Draft } | null = null;
+    try {
+      pending = JSON.parse(raw) as { transcript?: string; draft?: Draft };
+    } catch {
+      pending = null;
+      try {
+        sessionStorage.removeItem("once:pending-draft");
+      } catch {
+        // Nothing else to do.
+      }
+    }
+    if (!pending?.draft || !Array.isArray(pending.draft.items)) return;
+
+    const handoff = pending.draft;
+    const transcript = pending.transcript ?? "";
+    // Defer the handoff to the next task: this reads an external store once,
+    // and avoids a synchronous cascading render during mount. Remove the key
+    // inside the timer so React StrictMode's mount/cleanup/mount cycle still
+    // sees the handoff on its second pass.
+    const timer = window.setTimeout(() => {
+      try {
+        sessionStorage.removeItem("once:pending-draft");
+      } catch {
+        // Nothing else to do.
+      }
+      setDraft(handoff);
+      setText(transcript);
+      setMode("text");
+      window.requestAnimationFrame(() => {
+        draftRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (!listening) return;
     const id = window.setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -383,6 +428,27 @@ export default function TeachPage() {
             </span>
           </Link>
         </div>
+
+        <Link
+          href="/alexa"
+          className="app-card group mx-auto mt-3 flex max-w-xl items-center gap-3 rounded-[22px] border-accent/25 bg-accent-soft/55 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-accent/50"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-white shadow-[0_10px_24px_-12px_rgba(47,107,255,0.9)]">
+            <MicIcon className="size-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="text-sm font-extrabold">Ask ONCE out loud</span>
+              <span className="rounded-full bg-surface/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-accent">
+                Alexa+ MCP
+              </span>
+            </span>
+            <span className="mt-0.5 block text-[11px] font-semibold text-muted">
+              Real MCP client + voice. See the actual tool call behind every answer.
+            </span>
+          </span>
+          <ArrowRightIcon className="size-4 shrink-0 text-accent transition group-hover:translate-x-0.5" />
+        </Link>
 
         <form
           onSubmit={submitQuick}
@@ -859,7 +925,8 @@ export default function TeachPage() {
       <div className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2 text-[10px] font-bold text-muted">
         <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">Grounded memory</span>
         <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">No invented items</span>
-        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">DynamoDB + S3</span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">MCP 2025-11-25</span>
+        <span className="rounded-full border border-border/80 bg-surface/70 px-3 py-1.5">Store: AWS live · memory mock</span>
       </div>
     </div>
   );

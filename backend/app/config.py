@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # "mock": in-memory stores and stubbed AI calls (tests / offline dev).
     # "live": real AWS calls required; failures surface as errors, never as fakes.
     app_mode: str = "mock"
+    # Mock mode is offline dev/demo. Seed the curated demo skills so /alexa
+    # works without AWS; this is clearly labeled by /health. Set to false for an
+    # empty in-memory store in tests that need a blank slate.
+    seed_demo: bool = True
 
     # --- AWS (used only when app_mode == "live") -----------------------------
     aws_region: str = "us-east-1"
@@ -29,7 +33,7 @@ class Settings(BaseSettings):
     # Chosen explicitly, never auto-switched; surfaced in /health and every
     # extraction response. "openai-compatible" works with a local Ollama server
     # or any hosted OpenAI-compatible endpoint.
-    inference_provider: str = "gemini"
+    inference_provider: str = "openai-compatible"
     openai_base_url: str = "http://localhost:11434/v1"
     openai_api_key: str = "ollama"
     openai_model: str = "qwen2.5-coder:7b"

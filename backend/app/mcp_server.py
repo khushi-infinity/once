@@ -1,9 +1,10 @@
 """ONCE MCP server — exposes the skill-memory tools to any MCP client.
 
-Transport: Streamable HTTP at http://127.0.0.1:8765/mcp (MCP spec 2025-11-25
-or newer, negotiated by the official SDK). Run:
+Transport: Streamable HTTP (MCP spec 2025-11-25 or newer, negotiated by the
+official SDK). `app.main` mounts this app at `/mcp`, so the normal app needs no
+second process. For the independent smoke client, run the standalone server:
 
-    cd backend && uv run python -m app.mcp_server
+    cd backend && uv run python -m app.mcp_server   # http://127.0.0.1:8765/mcp
 
 Tools read/write the same stores as the HTTP API, with the same server-side
 authorization checks. There is no privileged bypass.
@@ -13,9 +14,11 @@ initialize, lists tools, and calls them over Streamable HTTP.
 """
 from mcp.server.mcpserver import MCPServer
 
+from app.config import get_settings
 from app.models.api import NextStepResponse, VerifyStepResponse
 from app.models.core import Skill
 from app.services import inference, learning
+from app.services.drafting import deterministic_extract, draft_from_result
 from app.services.recall import RecallNoMatch, recall_for_reader
 from app.services.skill_store import get_store
 
@@ -54,9 +57,9 @@ def once_recall_missing(reader_id: str, query: str, have: list[str] | None = Non
     """Grounded 'what am I missing?' — retrieves a stored skill and compares its
     required items with the names the reader confirms they already have.
 
-    Unconfirmed items are reported as not confirmed, never as proof of absence.
-    Returns {"error": ...} when no stored skill matches, so callers can tell the
-    user the truth instead of inventing an answer.
+    The response field is `not_confirmed`, because unconfirmed items are not
+    proof of absence. Returns {"error": ...} when no stored skill matches, so
+    callers can tell the user the truth instead of inventing an answer.
     """
     try:
         result = recall_for_reader(reader_id, query, have or [])
@@ -66,10 +69,18 @@ def once_recall_missing(reader_id: str, query: str, have: list[str] | None = Non
 
 
 @mcp.tool()
-def once_start_session(skill_id: str, learner_id: str) -> dict:
-    """Start or resume a learner session; returns the first pending step."""
+def once_start_session(
+    skill_id: str, learner_id: str, restart: bool = False
+) -> dict:
+    """Start or resume a learner session; returns the next pending step.
+
+    Set restart=true for a clean run; the default resumes the newest open
+    session so a learner never loses progress.
+    """
     try:
-        return learning.start_session(skill_id, learner_id).model_dump(mode="json")
+        return learning.start_session(
+            skill_id, learner_id, restart=restart
+        ).model_dump(mode="json")
     except learning.LearningError as exc:
         return {"error": exc.detail}
 
@@ -106,11 +117,18 @@ def once_verify_step(
 def once_extract_draft(transcript: str, skill_type: str = "packing") -> dict:
     """Turn a teacher's description into a structured draft (items + steps).
     The draft is a proposal only; persist it through the teacher-confirmed flow."""
+    if not get_settings().is_live:
+        draft = deterministic_extract(transcript, skill_type)
+        return {
+            "draft": draft.model_dump(mode="json"),
+            "engine": draft.engine.model_dump(mode="json"),
+        }
     try:
         result = inference.extract_procedure(transcript, skill_type)
+        draft = draft_from_result(result)
         return {
-            "draft": inference.parse_json_object(result.text),
-            "engine": result.metadata_dict(),
+            "draft": draft.model_dump(mode="json"),
+            "engine": draft.engine.model_dump(mode="json"),
         }
     except Exception as exc:  # noqa: BLE001 — surfaced truthfully to the MCP caller
         return {"error": f"{type(exc).__name__}: {exc}"}

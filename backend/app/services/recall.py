@@ -6,7 +6,7 @@ are reported as *not confirmed* — never as proof that something is absent.
 """
 import re
 
-from app.models.api import RecallMissingItem, RecallResponse
+from app.models.api import RecallNotConfirmedItem, RecallResponse
 from app.models.core import Skill
 from app.services.skill_store import get_store
 
@@ -90,20 +90,15 @@ def recall_for_reader(reader_id: str, query: str, have: list[str]) -> RecallResp
         )
 
     _, skill, matched = best
-    missing = [
-        RecallMissingItem(name=item.name, aliases=item.aliases)
+    not_confirmed = [
+        RecallNotConfirmedItem(name=item.name, aliases=item.aliases)
         for item in skill.items
         if item.required and not _matches(item.name, item.aliases, have)
-    ]
-    unconfirmed = [
-        item.name
-        for item in skill.items
-        if not _matches(item.name, item.aliases, have)
     ]
     explanation = (
         f"Matched “{skill.title}” (v{skill.version}) on: {', '.join(sorted(matched))}. "
         f"{len(have)} item(s) confirmed present; "
-        f"{len(missing)} required item(s) are not confirmed. "
+        f"{len(not_confirmed)} required item(s) are not confirmed. "
         "Not confirmed is not proof of absence — check the bag before leaving."
     )
     return RecallResponse(
@@ -111,7 +106,6 @@ def recall_for_reader(reader_id: str, query: str, have: list[str]) -> RecallResp
         query=query,
         matched_terms=sorted(matched),
         have=have,
-        missing=missing,
-        unconfirmed=unconfirmed,
+        not_confirmed=not_confirmed,
         explanation=explanation,
     )
