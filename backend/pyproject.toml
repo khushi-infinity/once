@@ -1,7 +1,7 @@
 [project]
 name = "once-backend"
 version = "0.1.0"
-description = "ONCE — multimodal personal skill-memory backend (FastAPI + Strands + Bedrock)"
+description = "ONCE — multimodal personal skill-memory backend (FastAPI + DynamoDB + S3)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -21,4 +21,4 @@ dev = [
     "httpx>=0.27",
     "ruff>=0.7",
 ]
-# Prompt 2 adds: boto3, strands-agents, mangum/deployment deps only after real AWS setup.
+# AWS data-layer dependencies only; inference is a separate, explicitly selected provider.

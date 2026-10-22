@@ -98,7 +98,7 @@ class DynamoSkillStore:
             )
         except self._skills.meta.client.exceptions.ConditionalCheckFailedException:
             return False
-        return "OldImage" in resp
+        return bool(resp.get("Attributes"))
 
     def share_skill(
         self, skill_id: str, owner_id: str, learner_id: str, revoke: bool

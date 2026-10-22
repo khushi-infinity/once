@@ -54,8 +54,9 @@ def test_dynamo_skill_roundtrip_and_authz(store):
     assert store.get_skill(sid, "learner-b") is not None
     store.share_skill(sid, "pytest-live", "learner-b", revoke=True)
     assert store.get_skill(sid, "learner-b") is None
-    # owner delete works, stranger delete doesn't
-    store.delete_skill(sid, "pytest-live")
+    # owner delete works and reports success; stranger delete does not.
+    assert store.delete_skill(sid, "stranger") is False
+    assert store.delete_skill(sid, "pytest-live") is True
     assert store.get_skill(sid, "pytest-live") is None
 
 

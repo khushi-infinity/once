@@ -119,7 +119,8 @@ start, correct verification, wrong-element rejection and draft extraction.
 | --- | --- |
 | Text, voice (browser speech), and photo teaching UI → editable draft → confirm → persisted skill | Record the <3 min demo video |
 | Real AI extraction with labeled engine metadata (local Ollama text + vision) | Deploy a public demo URL if the submission form requires one |
-| Grounded recall / "what am I missing" with alias matching and honest not-confirmed wording | Manual mobile polish pass |
+| Grounded recall / "what am I missing" with alias matching and honest not-confirmed wording | |
+| Responsive cream/blue UI matching the 8-screen reference (mobile nav, orb, draft review, guided highlight, completion) | |
 | Skill CRUD, versioned edits, sharing/revocation, learner sessions | |
 | Browser-workflow teach-by-demonstration + learner mode with real DOM highlight and target-aware verification | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |

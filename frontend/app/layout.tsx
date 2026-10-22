@@ -1,11 +1,14 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
+import { Geist_Mono, Nunito } from "next/font/google";
+
+import { AppHeader, AppNav } from "@/components/app-nav";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -14,49 +17,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ONCE",
-  description: "Teach once. Let it teach anyone, forever.",
+  title: "ONCE — Teach once. Let it teach anyone, forever.",
+  description:
+    "A multimodal personal skill-memory app: teach by voice, text or photo, then recall what you need and guide someone else.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f8f2e8",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${nunito.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <header className="w-full">
-          <nav
-            aria-label="Main"
-            className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5"
-          >
-            <Link href="/" className="text-lg font-semibold tracking-tight">
-              once.
-            </Link>
-            <ul className="flex items-center gap-6 text-sm text-muted">
-              <li className="font-medium text-foreground">Teach</li>
-              <li>
-                <Link href="/recall" className="hover:text-foreground">
-                  Recall
-                </Link>
-              </li>
-              <li>
-                <Link href="/skills" className="hover:text-foreground">
-                  My Skills
-                </Link>
-              </li>
-              <li>
-                <Link href="/demo/photoshare" className="hover:text-foreground">
-                  Demo
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </header>
+      <body className="flex min-h-full flex-col pb-[84px] md:pb-0">
+        <Suspense fallback={<div className="h-[68px]" />}>
+          <AppHeader />
+        </Suspense>
         <main className="flex-1">{children}</main>
-        <footer className="mx-auto w-full max-w-3xl px-6 pb-8 pt-4 text-xs text-muted">
+        <footer className="mx-auto hidden w-full max-w-5xl px-6 pb-8 pt-6 text-center text-xs font-semibold text-muted md:block">
           ONCE — personal skill memory. Built for the Amazon Developer Hackathon 2026.
         </footer>
+        <Suspense fallback={null}>
+          <AppNav />
+        </Suspense>
       </body>
     </html>
   );
