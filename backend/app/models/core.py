@@ -51,8 +51,8 @@ class SkillItem(BaseModel):
 class SkillStep(BaseModel):
     order: int = Field(..., ge=0)
     instruction: str = Field(..., min_length=1, max_length=1000)
-    # browser_workflow steps target a stable element id inside the controlled
-    # PhotoShare demo app; other step types leave it None.
+    # browser_workflow steps target a stable element id inside a controlled
+    # browser demo; other step types leave it None.
     target_element_id: str | None = None
     screen: str | None = None  # route or screen name the step occurs on
     checkpoint_s3_key: str | None = None

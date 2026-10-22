@@ -2,17 +2,18 @@
 
 ## Product shape
 
-Five user-facing destinations: **Teach** (`/`), **Recall** (`/recall`),
-**My Skills** (`/skills`, `/skills/[id]`), the **PhotoShare demo**
-(`/demo/photoshare`) and the **Alexa+ MCP surface** (`/alexa`). Under them, the
-concepts below exist in code, not just names in a UI.
+Four user-facing destinations: **Teach** (`/`), **Recall** (`/recall`),
+**My Skills** (`/skills`, `/skills/[id]`), and the **Alexa+ MCP surface**
+(`/alexa`). Under them, the concepts below exist in code, not just names in a
+UI. The browser-workflow demo was removed at product direction; the learning
+engine remains backend-only.
 
 | Concept | Actual responsibility today |
 | --- | --- |
 | **Skill model** | Typed Pydantic records ([backend/app/models/core.py](backend/app/models/core.py)): `Skill`, `SkillItem` (aliases + tri-state packing verification), `SkillStep` (ordered, stable `target_element_id` + `expected_event`), `LearnerSession`, `ShareGrant` |
 | **Skill store** | Persistence interface with server-side ownership checks ([backend/app/services/skill_store.py](backend/app/services/skill_store.py)); in-memory (mock) and real DynamoDB (live) behind the same interface |
 | **Recall** | Deterministic retrieval + comparison ([backend/app/services/recall.py](backend/app/services/recall.py)); shared by the HTTP route and MCP tools. No LLM writes an answer about stored items |
-| **Learning engine** | Session start/resume/verify ([backend/app/services/learning.py](backend/app/services/learning.py)); wrong event, wrong step or wrong DOM element provably does not advance |
+| **Learning engine** | Backend-only session start/resume/verify ([backend/app/services/learning.py](backend/app/services/learning.py)); wrong event, wrong step or wrong DOM element provably does not advance. No browser UI is shipped |
 | **Inference** | Explicit provider, never auto-switched ([backend/app/services/inference.py](backend/app/services/inference.py)): `openai-compatible` (local Ollama or any hosted endpoint) or `gemini` (Interactions API). Every result carries sanitized engine metadata |
 | **MCP server** | Eight tools over Streamable HTTP ([backend/app/mcp_server.py](backend/app/mcp_server.py)) with the same store + authorization rules as HTTP; verified by an independent Python client |
 | **MCP client** | `/alexa` uses a real browser Streamable HTTP client ([frontend/lib/mcp.ts](frontend/lib/mcp.ts)): `initialize` → `notifications/initialized` → `tools/list` → `tools/call`; shows protocol and traffic |
@@ -21,7 +22,7 @@ concepts below exist in code, not just names in a UI.
 ## Data flow
 
 ```
-Browser (Teach / Recall / Skills / Demo)
+Browser (Teach / Recall / Skills)
    │  fetch /api/…  (same origin)
    ▼
 FastAPI routers ──► Pydantic validation (never trust raw model output)
@@ -68,9 +69,9 @@ calls so the claim is inspectable.
    opt-in and labeled in `/health`, extraction responses and the UI.
 7. **No credentials in the browser.** AWS identity comes from the server-side
    provider chain; inference keys live only in `backend/.env` (gitignored).
-8. **Guidance targets real DOM.** Browser-workflow steps store stable element
-   ids; the learner page highlights that element and the server verifies the
-   clicked id before advancing.
+8. **Guided browser learning is not shipped.** The backend session engine and
+   its tests remain, but the PhotoShare demo surface was removed at product
+   direction.
 9. **MCP is not a sidecar demo.** The `/alexa` browser client and the Python
    smoke client both speak the same Streamable HTTP protocol to the same server
    and tools; neither gets a privileged path.

@@ -14,7 +14,7 @@ cd backend && AWS_PROFILE=once uv run python scripts/provision_aws.py
 
 Last run: 2026-10-22, runtime identity `arn:aws:iam::552952091217:user/once-local`
 (least-privilege IAM user, the app never runs as root; see AWS_SETUP.md).
-Latest: `smoke_live` **4/4**, live pytest **16 passed**, MCP client smoke **8/8**.
+Latest: `smoke_live` **4/4**, live pytest **19 passed**, MCP client smoke **8/8**.
 
 ## Verified claims
 
@@ -25,7 +25,7 @@ Latest: `smoke_live` **4/4**, live pytest **16 passed**, MCP client smoke **8/8*
 | 3 | Real DynamoDB write + read of a session record | smoke check `dynamodb_sessions_write_read` on table `ONCE_Sessions` (PK `sessionId`, GSI `skill-learner-index`) | **PASS** |
 | 4 | Private S3 evidence roundtrip | smoke check `s3_private_roundtrip`, upload + read back + **verifies the object is not publicly readable**; bucket has all four PublicAccessBlock switches on + default SSE-S3 + no bucket policy | **PASS** |
 | 5 | Share-grant table supports learner-side listing without scans | `ONCE_Grants` (PK `learnerId`, SK `skillId`); live test share → learner lists → revoke → blocked | **PASS** |
-| 6 | Live-mode store + API tests incl. authorization and target-aware verification | `APP_MODE=live AWS_PROFILE=once-local uv run pytest` | **PASS (16/16)** |
+| 6 | Live-mode store + API tests incl. authorization and backend session validation | `APP_MODE=live AWS_PROFILE=once-local uv run pytest` | **PASS (19/19)** |
 | 7 | MCP tool calls over Streamable HTTP | `uv run python scripts/mcp_smoke.py`, independent client, protocol **2025-11-25**, 8 checks | **PASS** |
 | 8 | Real browser MCP client, not a mock transcript | `/alexa`, `initialize`, `tools/list`, `tools/call` over Streamable HTTP; traffic drawer shows real arguments/results | **PASS** |
 

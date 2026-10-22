@@ -10,7 +10,6 @@ import {
   ChatIcon,
   GridIcon,
   HomeIcon,
-  MonitorIcon,
   SparkleIcon,
 } from "@/components/icons";
 
@@ -24,12 +23,6 @@ const NAV = [
     icon: SparkleIcon,
     match: (p: string) => p.startsWith("/alexa"),
   },
-  {
-    href: "/demo/photoshare",
-    label: "Demo",
-    icon: MonitorIcon,
-    match: (p: string) => p.startsWith("/demo"),
-  },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -39,8 +32,8 @@ function isActive(pathname: string, href: string) {
 export function AppHeader() {
   const pathname = usePathname();
   const home = pathname === "/";
-  const showBack = pathname.startsWith("/skills/") || pathname.startsWith("/demo");
-  const backHref = pathname.startsWith("/skills/") ? "/skills" : "/";
+  const showBack = pathname.startsWith("/skills/");
+  const backHref = "/skills";
   const [mode, setMode] = useState<string | null>(null);
 
   // Show the actual store mode, not a decorative "AWS" claim. Mock mode is an

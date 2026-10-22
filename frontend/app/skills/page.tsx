@@ -16,7 +16,6 @@ type Filter = "all" | SkillType;
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "packing", label: "Packing" },
-  { value: "browser_workflow", label: "Computer" },
   { value: "household_procedure", label: "Home" },
   { value: "checklist", label: "Other" },
 ];

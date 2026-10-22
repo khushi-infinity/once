@@ -80,7 +80,7 @@ def test_learner_session_progression_real_verification():
     owner, learner = "teacher-1", "student-1"
     sid = client.post(
         "/api/skills",
-        json={"owner_id": owner, "title": "PhotoShare: send a photo", "type": "browser_workflow", "source": "screen_demo"},
+        json={"owner_id": owner, "title": "Guided browser workflow", "type": "browser_workflow", "source": "screen_demo"},
     ).json()["skill_id"]
     client.patch(
         f"/api/skills/{sid}",

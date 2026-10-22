@@ -11,7 +11,6 @@ import {
   HelpIcon,
   ListIcon,
   MicIcon,
-  MonitorIcon,
   SparkleIcon,
   VolumeIcon,
 } from "@/components/icons";
@@ -70,19 +69,9 @@ type SkillShape = {
   owner_id?: string;
 };
 
-type StartValue = {
-  session_id?: string;
-  step_order?: number | null;
-  instruction?: string | null;
-  target_element_id?: string | null;
-  done?: boolean;
-  error?: string;
-};
-
 const SUGGESTIONS = [
   "What am I missing for the conference?",
   "List my skills",
-  "Start the PhotoShare workflow",
   "What is in my event bag?",
 ];
 
@@ -249,43 +238,6 @@ export default function AlexaPage() {
 
     if (/\b(missing|what do i need|pack for|packed for)\b/.test(q)) {
       return recallReply();
-    }
-
-    // "Start the PhotoShare workflow", a real learner session, created by MCP.
-    if (/\b(start|guide|teach me|walk me through|photoshare)\b/.test(q)) {
-      const listed = await runTool("once_list_skills", { reader_id: reader });
-      const skills = (Array.isArray(listed.value) ? listed.value : []) as SkillShape[];
-      const workflow =
-        firstMatch(skills, "photoshare browser workflow") ??
-        skills.find((skill) => skill.type === "browser_workflow") ??
-        null;
-      if (!workflow) {
-        return {
-          text: `No browser workflow is stored for ${profileLabel(reader)}. Teach one in the PhotoShare demo first.`,
-          tool: listed,
-          error: true,
-          links: [{ href: "/demo/photoshare?mode=teach", label: "Teach a workflow", primary: true }],
-        };
-      }
-      const started = await runTool("once_start_session", {
-        skill_id: workflow.skill_id,
-        learner_id: "demo-learner",
-        // A voice "start" is an explicit new run; a direct learner link still
-        // resumes. This also makes repeat demos deterministic.
-        restart: true,
-      });
-      const value = started.value as StartValue;
-      if (value?.error) return { text: value.error, tool: started, error: true };
-      const href = `/demo/photoshare?session_id=${encodeURIComponent(
-        value.session_id ?? ""
-      )}&learner_id=demo-learner&skill_id=${encodeURIComponent(workflow.skill_id)}`;
-      return {
-        text: `Session started for “${workflow.title}”. Next step: ${
-          value.instruction ?? "open the first control"
-        }. The learner view will highlight the exact control and check each click.`,
-        tool: started,
-        links: [{ href, label: "Open the guided learner", primary: true }],
-      };
     }
 
     // "What is in my event bag?" / "show my tea skill", retrieve, don't invent.
@@ -816,9 +768,9 @@ export default function AlexaPage() {
             body: "Browser speech recognition turns a spoken question into the same MCP request.",
           },
           {
-            icon: MonitorIcon,
+            icon: ListIcon,
             title: "Tool, not guess",
-            body: "The client calls once_recall_missing or once_start_session; results come from the same server store (DynamoDB in live mode).",
+            body: "The client calls once_recall_missing or once_get_skill; results come from the same server store (DynamoDB in live mode).",
           },
           {
             icon: CheckIcon,
@@ -849,13 +801,6 @@ export default function AlexaPage() {
         >
           <BagIcon className="size-3.5 text-accent" />
           Open the checklist view
-        </Link>
-        <Link
-          href="/demo/photoshare?mode=teach"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2.5 text-xs font-extrabold transition hover:border-accent"
-        >
-          <MonitorIcon className="size-3.5 text-accent" />
-          Teach a browser workflow
         </Link>
       </div>
     </div>

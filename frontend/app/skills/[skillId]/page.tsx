@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import {
-  ArrowRightIcon,
   CheckIcon,
   ChatIcon,
   LockIcon,
@@ -38,13 +37,13 @@ const SOURCE_LABEL: Record<string, string> = {
 
 function SkillDetailPage() {
   const params = useParams<{ skillId: string }>();
-  const router = useRouter();
   const skillId = params.skillId;
   const [reader, setReader] = useState("demo-teacher");
   const [readerInput, setReaderInput] = useState("demo-teacher");
   const [skill, setSkill] = useState<Skill | null>(null);
   const [error, setError] = useState<string | null>(null);
   const learner = "demo-learner";
+  const learnerLabel = "Grandma";
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -82,28 +81,10 @@ function SkillDetailPage() {
         `/api/skills/${skill.skill_id}/share?owner_id=${encodeURIComponent(skill.owner_id)}&learner_id=${encodeURIComponent(learner)}&revoke=${revoke}`,
         { method: "POST" }
       );
-      setNotice(revoke ? `Revoked access for ${learner}.` : `Shared with ${learner}.`);
+      setNotice(
+        revoke ? `Stopped sharing with ${learnerLabel}.` : `Shared with ${learnerLabel}.`
+      );
       setReloadKey((k) => k + 1);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function startSession() {
-    if (!skill) return;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const started = await api<{ session_id: string; step_order: number | null }>("/api/sessions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skill_id: skill.skill_id, learner_id: learner, restart: true }),
-      });
-      const target = `/demo/photoshare?session_id=${encodeURIComponent(started.session_id)}&learner_id=${encodeURIComponent(learner)}&skill_id=${encodeURIComponent(skill.skill_id)}`;
-      router.push(target);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -204,17 +185,16 @@ function SkillDetailPage() {
             </div>
           </section>
 
-          {skill.type === "browser_workflow" && (
+          {skill.owner_id === reader && (
             <section className="app-card mt-4 overflow-hidden">
               <div className="flex items-start gap-3 border-b border-border/60 bg-accent-soft/45 px-5 py-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-accent">
                   <ShareIcon className="size-5" />
                 </span>
                 <div>
-                  <h2 className="text-lg font-extrabold tracking-[-0.02em]">Help someone do it</h2>
+                  <h2 className="text-lg font-extrabold tracking-[-0.02em]">Share this skill</h2>
                   <p className="mt-0.5 text-xs font-semibold leading-relaxed text-muted">
-                    Share it, then start helping. The next control is highlighted; a wrong click is
-                    checked and does not advance.
+                    Let Grandma see this skill in her own list. You can stop sharing at any time.
                   </p>
                 </div>
               </div>
@@ -239,15 +219,6 @@ function SkillDetailPage() {
                     className="rounded-full border border-border bg-surface px-3 py-2.5 text-xs font-extrabold text-muted transition hover:border-red-300 hover:text-danger disabled:opacity-50"
                   >
                     Stop sharing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={startSession}
-                    disabled={busy}
-                    className="col-span-2 inline-flex items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-accent-deep disabled:opacity-50 sm:col-span-1"
-                  >
-                    Start helping
-                    <ArrowRightIcon className="size-3.5" />
                   </button>
                 </div>
                 <p className="mt-2 text-[10px] font-bold text-muted">

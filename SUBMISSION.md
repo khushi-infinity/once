@@ -6,26 +6,31 @@
 **License:** MIT
 **Demo video:** add the public YouTube/Vimeo URL before submitting
 
+> **Scope change (2026-10-22):** the PhotoShare browser-workflow demo was
+> removed at product direction. The shipped submission demonstrates the
+> event-bag, grounded-recall, shared-skill and real-MCP path. The generic
+> learning engine and session tools remain backend-only and are not exposed in
+> the UI.
+
 ---
 
 ## One-line pitch
 
 **ONCE is a personal skill-memory: teach it how *you* do something once, and it
-guides the next person through it, with grounded answers, a real DOM
-highlight, and proof when a step actually happened.**
+answers the next person from the stored method, with grounded recall and
+honest "not confirmed" feedback.**
 
 ## The problem
 
 The most useful knowledge in a family or a team is tacit: how Dad packs for a
-conference, how a teammate shares a photo on a legacy internal site, how a
-caregiver closes up the house. Today that knowledge lives in one person's head
-or in a screen recording nobody can follow. General assistants can remember
-facts, but they cannot reliably teach a *method* and verify that someone
-actually did it.
+conference, how a teammate closes the shop, how a caregiver closes up the
+house. Today that knowledge lives in one person's head or in a note nobody can
+find. General assistants can remember facts, but they cannot reliably preserve
+a personal *method* and answer from it.
 
 ONCE is built around one promise: **teach once, let it teach anyone, forever.**
-The original user teaches by voice, text, photo, or by demonstrating a browser
-workflow. ONCE stores a structured skill. Later, the owner or an authorized
+The original user teaches by voice, text, or photo. ONCE stores a structured
+skill. Later, the owner or an authorized
 learner can ask for it, follow it, and get honest feedback when reality differs
 from what was taught.
 
@@ -35,9 +40,8 @@ from what was taught.
 | --- | --- |
 | **Teach a bag / checklist** | Speak, type, or show a photo. The model proposes an editable draft. Nothing is stored until the human confirms it. The confirmed skill is written to DynamoDB. A draft taught through `/alexa` is handed to the same review screen, so the MCP path ends in a real save instead of a dead link. |
 | **Ask "what am I missing?"** | ONCE retrieves the *stored* skill, compares required items with what the reader explicitly confirms, and reports the rest as **not confirmed**, never as proof of absence. |
-| **Teach a browser workflow** | Record real clicks in the PhotoShare demo app. Each step stores a stable DOM element id and expected event. |
-| **Guide a second learner** | The learner view outlines the exact recorded control in the live DOM. The server verifies the clicked element; a wrong click returns a mismatch and does **not** advance. |
-| **Ask by voice through MCP** | The `/alexa` page is a real Streamable HTTP MCP client. It negotiates the protocol, lists the tool surface, and calls `once_recall_missing`, `once_start_session`, etc. The UI shows the actual JSON-RPC arguments and results. |
+| **Share a skill** | The owner can share a stored skill with Grandma and revoke access at any time. Sharing is enforced server-side. |
+| **Ask by voice through MCP** | The `/alexa` page is a real Streamable HTTP MCP client. It negotiates the protocol, lists the tool surface, and calls `once_recall_missing`, `once_get_skill`, and `once_extract_draft`. The UI shows the actual JSON-RPC arguments and results. |
 
 ## The Alexa+ track: what is actually real
 
@@ -113,7 +117,7 @@ that shaped this choice is documented with evidence in `FRICTION_LOG.md`.
 
 ```mermaid
 flowchart LR
-  U[Teacher / Learner] -->|voice, text, photo, clicks| FE[Next.js UI]
+  U[Teacher / Learner] -->|voice, text, photo| FE[Next.js UI]
   FE -->|/api/*| API[FastAPI]
   API -->|ownership + grant checks| STORE[SkillStore]
   STORE -->|live| DDB[(DynamoDB\nSkills · Sessions · Grants)]
@@ -133,8 +137,6 @@ Key invariants:
   absence.
 - Ownership and sharing are enforced server-side. A stranger gets a 404, not an
   existence leak.
-- Guidance targets real DOM. The server verifies the clicked element id before
-  advancing a learner session.
 - Failure is never masked. Live-mode failures surface as errors; mock mode is
   opt-in and labeled.
 
@@ -146,7 +148,6 @@ Key invariants:
 | Browser page acting as an actual MCP client | **Real** (`/alexa`), with visible JSON-RPC transcript |
 | DynamoDB skills, sessions, grants | **Real** (live mode) |
 | Private S3 evidence roundtrip | **Real** (live mode) |
-| Browser-workflow DOM highlight + target-aware verification | **Real** |
 | Voice input / spoken replies | **Real browser Web Speech APIs**; no cloud voice service is claimed |
 | Alexa+ Add-on SDK / real Alexa+ device | **Not used and not claimed**, select-partner preview |
 | AWS AI inference | **Not used and not claimed**, inference is explicit local/hosted OpenAI-compatible |
@@ -163,9 +164,9 @@ library, so the protocol and tool traffic on screen are real.
 
 The hard part was restraint: when inference was unavailable, the app had to say
 so rather than invent a draft; when a required item was not confirmed, it had to
-say **not confirmed**, not "missing"; when a learner clicked the wrong DOM
-element, the step had to stay put. Those constraints are enforced server-side
-and covered by tests.
+say **not confirmed**, not "missing"; when no stored skill matched, the API
+had to say so instead of inventing a list. Those constraints are enforced
+server-side and covered by tests.
 
 ## Challenges we ran into
 
@@ -198,8 +199,8 @@ and covered by tests.
   clean.
 - Live AWS smoke 4/4: scoped IAM identity, DynamoDB skill, DynamoDB session,
   private S3 roundtrip.
-- A second learner is guided by a real DOM highlight and server-side
-  target-aware verification, not a screenshot or a scripted animation.
+- Sharing and revocation are server-side and covered by tests, so a shared
+  skill appears in the learner's list and disappears when access is revoked.
 - One command runs the whole app offline (`APP_MODE=mock ./scripts/dev.sh`) with
   seeded demo skills, so a judge can inspect it without AWS or Ollama.
 
@@ -211,8 +212,8 @@ and covered by tests.
 - Amazon DynamoDB, Amazon S3, AWS IAM (least-privilege runtime identity)
 - Ollama (`qwen2.5-coder:7b` text, `qwen2.5vl:3b` vision) as the explicit local
   inference path
-- Playwright for end-to-end checks (browser highlight, wrong-click rejection,
-  MCP traffic, no console errors)
+- Playwright for end-to-end checks (MCP traffic, recall semantics, no console
+  errors)
 
 ## What's next
 
@@ -229,7 +230,7 @@ and covered by tests.
 
 Prerequisites: Node 22+, [uv](https://docs.astral.sh/uv/), and Ollama only if
 you want to exercise live teach extraction. The curated demo skills are already
-in DynamoDB, so recall and guided learning work without Ollama.
+in DynamoDB, so recall works without Ollama.
 
 ```bash
 # 1. Backend API (port 8000): also serves MCP at /mcp
@@ -252,7 +253,6 @@ Open:
 - `/`, teach by voice, text or photo; the event-bag journey.
 - `/recall`, grounded "what am I missing?".
 - `/alexa`, real MCP client + voice; inspect the actual tool calls.
-- `/demo/photoshare`, teach a workflow by demonstration, then guide a learner.
 
 If you do not have the AWS profile, run `APP_MODE=mock` for the store. The UI
 labels mock mode; it does not silently pretend to be live.
@@ -263,7 +263,7 @@ labels mock mode; it does not silently pretend to be live.
 
 - Real MCP server and a real browser MCP client, not a mock transcript.
 - DynamoDB/S3 persistence, least-privilege IAM, server-side authorization.
-- Deterministic recall and a target-aware learning state machine.
+- Deterministic recall, server-side ownership checks, and explicit errors.
 - 19 live tests, 17 mock tests, ruff clean, ESLint clean, production build clean.
 - Explicit provider selection, no silent fallback; honest errors.
 
@@ -273,17 +273,17 @@ labels mock mode; it does not silently pretend to be live.
   and typography system.
 - Voice-first entry points, large controls, captions, keyboard support, and
   reduced-motion handling.
-- The interface becomes the task: a packing skill becomes a checklist, a browser
-  workflow becomes a live highlight.
+- The interface becomes the task: a packing skill becomes a checklist, and a
+  stored skill becomes a shareable family record.
 - The MCP page exposes the protocol without making the user read a developer
   console: a conversational surface plus an optional traffic drawer.
 
 ### Potential Impact
 
 - **Family knowledge transfer:** an older relative's routines, medication
-  checklists, or "how I close up the house" can be preserved and guided.
-- **Team onboarding:** a teammate records a legacy internal workflow once; the
-  next person follows it with verified steps instead of a stale wiki page.
+  checklists, or "how I close up the house" can be preserved and retrieved.
+- **Team onboarding:** a teammate records a legacy checklist once; the next
+  person retrieves the stored method instead of asking the same questions.
 - **Accessibility:** voice-first teaching and spoken step repetition lower the
   barrier for users who cannot read a long procedure.
 - **Trust:** the "not confirmed" semantics make the assistant useful for
@@ -292,9 +292,9 @@ labels mock mode; it does not silently pretend to be live.
 ### Quality of the Idea
 
 Most assistants remember facts or generate instructions. ONCE stores a
-*personal method*, retrieves it deterministically, and verifies that a learner
-actually performed the recorded action. The combination of grounded memory,
-real DOM guidance, and a real MCP surface is the creative bet.
+*personal method*, retrieves it deterministically, and exposes the same memory
+through a real MCP surface. The combination of grounded memory and a real MCP
+client is the creative bet.
 
 ## Demo video beats (under 3 minutes)
 
@@ -307,9 +307,8 @@ See `DEMO_SCRIPT.md` for the full shot list. The highest-value order:
    MCP traffic drawer and show the real `once_recall_missing` call/result.
 3. **0:42-1:12**, `/recall`: tick two items; show "not confirmed" language and
    the honesty line. Do **not** say "definitely missing."
-4. **1:12-2:12**, `/demo/photoshare`: teach by showing, **Save and help
-   Grandma**; a wrong click is rejected; the highlighted control verifies;
-   complete the workflow.
+4. **1:12-2:12**, `/` and `/skills`: teach a new checklist, save it, then show
+   it in My Skills and share it with Grandma.
 5. **2:12-2:37**, Terminal: `smoke_live.py` 4/4 PASS; name DynamoDB, S3, IAM.
 6. **2:37-2:55**, Close on the promise + repo. Hard stop before 3:00. Do not
    claim AWS AI or Alexa+ SDK access.
@@ -334,8 +333,9 @@ and an actionable suggestion.
 
 - Demo identities are labels, not authentication. Production needs Cognito or
   another IdP; the server-side authorization checks are real for the chosen id.
-- Browser guided learning is intentionally limited to the controlled PhotoShare
-  app. It does not automate arbitrary third-party sites or use OS-level overlays.
+- The browser-workflow demo was removed at product direction. The backend
+  learning engine and MCP session tools remain, but no browser guidance surface
+  is shipped.
 - Live teach extraction depends on a local Ollama model or a configured hosted
   OpenAI-compatible endpoint. If inference is unavailable, the API returns an
   honest 502/503; it does not fake a draft.

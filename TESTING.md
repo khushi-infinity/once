@@ -85,14 +85,11 @@ Open `http://localhost:3000/alexa` and check:
   missing");
 - open **Show MCP traffic** → a real `tools/call once_recall_missing` entry with
   arguments and result;
-- ask *"Start the PhotoShare workflow"* → a real `once_start_session` call
-  (explicit `restart=true`, so a repeat demo starts at step 1) and a working
-  **Open the guided learner** link;
 - ask *"Remember I pack a laptop and charger"* → a real `once_extract_draft`
   call; **Review and save the draft** opens the Teach screen with the exact
   draft loaded, and **Save as Skill** persists it.
 
-Mock mode seeds the same four demo skills in the same process, so this works
+Mock mode seeds the same three demo skills in the same process, so this works
 without AWS. If the page says **MCP unavailable**, the API process is not
 running or `MCP_URL` does not match it (default `http://localhost:8000`). It
 does not fall back to a fake response.
@@ -106,7 +103,7 @@ npm run build
 ```
 
 Expected: no ESLint output and a successful production build with routes `/`,
-`/recall`, `/skills`, `/skills/[skillId]`, `/alexa`, `/demo/photoshare`.
+`/recall`, `/skills`, `/skills/[skillId]`, and `/alexa`.
 
 ## 5. Manual browser flow (2-3 minutes)
 
@@ -117,17 +114,14 @@ Expected: no ESLint output and a successful production build with routes `/`,
    items → **Check my list** → the remaining required items are labeled
    **Not confirmed**, and the explanation says not confirmed is not proof of
    absence.
-4. `/demo/photoshare` → **Teach by showing** → **Start recording** → click
-   *Open album → Select photo → Add tag → Share album* → **Save and help Grandma**.
-5. In learner mode, advance to **Add tag**, click **Share album** first: red
-   mismatch, step does not advance. Then click **Add tag**: verified, next step.
-6. `/alexa` → ask by voice or click a suggestion → inspect the real MCP
-   traffic; start the PhotoShare workflow and confirm the learner link opens at
-   step 1 with the Open album control highlighted (the developer evidence shows
-   `#ps-open-album`).
-7. Optional: photo teaching on `/` with a real photo; the engine badge shows the
+4. `/skills` → open a saved skill → **Share this skill** → **Share with
+   Grandma** → switch the developer reader to `demo-learner` and confirm the
+   skill appears.
+5. `/alexa` → ask by voice or click a suggestion → inspect the real MCP
+   traffic.
+6. Optional: photo teaching on `/` with a real photo; the engine badge shows the
    vision model (e.g. `qwen2.5vl:3b`).
-8. Optional Gemini adapter check: `cd backend && uv run python scripts/gemini_smoke.py`.
+7. Optional Gemini adapter check: `cd backend && uv run python scripts/gemini_smoke.py`.
    It performs a real model listing, text extraction and image extraction. On the
    developer's current Google project it reports `text=FAIL` and `image=FAIL` with
    `403 PERMISSION_DENIED`; that is the honest result, not a skipped test.

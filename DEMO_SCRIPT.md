@@ -13,9 +13,9 @@ Goal: prove **real teaching → real storage → grounded recall → real MCP ca
 - Or one command: `./scripts/dev.sh` (live) / `APP_MODE=mock ./scripts/dev.sh` (offline)
 - `/health` shows `app_mode: live` and `openai-compatible`.
 - `/alexa` shows **MCP connected**, protocol **2025-11-25**, **8 tools**.
-- Two browser windows/profiles: the **Teacher** window (shown as **You**) and
-  the **Learner** window (shown as **Grandma**). The server still uses the demo
-  labels `demo-teacher` / `demo-learner`; they are not authentication.
+- Open `/skills` in a second tab if you want to show the shared-skills list
+  without leaving the recording flow. The server still uses the demo labels
+  `demo-teacher` / `demo-learner`; they are not authentication.
 - Terminal font large enough for the AWS smoke output; close noisy tabs.
 - Record at 1080p or higher; keep the cursor deliberate.
 
@@ -24,7 +24,7 @@ Goal: prove **real teaching → real storage → grounded recall → real MCP ca
 > "Alexa remembers facts. ONCE remembers *how you do things*, and teaches the
 > next person, with proof."
 
-Quick cut of four surfaces: `/alexa`, `/recall`, `/demo/photoshare`, `/skills`.
+Quick cut of four surfaces: `/alexa`, `/recall`, `/skills`, `/`.
 
 ## 0:12-0:42: Alexa+ track: a real MCP client, not a mock
 
@@ -55,24 +55,17 @@ Quick cut of four surfaces: `/alexa`, `/recall`, `/demo/photoshare`, `/skills`.
 5. Say: *"The stored skill is the source of truth. Unconfirmed is not proof of
    absence."*
 
-## 1:12-2:12: Experience B: teach a browser workflow, guide a second person
+## 1:12-2:12: Experience B: teach a new skill and share it
 
-1. `/demo/photoshare` → **Teach by showing** → **Start recording**.
-2. Click *Open album → Select photo → Add tag → Share album*. Show the four
-   recorded steps. The consumer view hides selectors; open **Developer
-   evidence** only if you want to show the real element ids.
-3. **Save and help Grandma**. The page switches to the learner view and offers
-   **Copy link** so a second window can join as Grandma.
-4. In learner mode: the next control is highlighted in the live DOM with a blue
-   outline and a specific instruction (*"Click Open album. It is the blue button
-   in the Family album card."*).
-5. Advance to the **Add tag** step, then click **Share album** first → red
-   mismatch, step stays. Say: *"The server verified the clicked element, not
-   just that a click happened."*
-6. Click the **highlighted** control → verified → next step. Complete the
-   workflow and show **completed just now**.
-7. Optional 5 seconds: open **My Skills** as Grandma to show the shared skill
-   appears; revoke as You.
+1. `/` → type a short familiar method, for example: *"When I close up the
+   house: lock the back door, turn off the lights, set the alarm."*
+2. Press **Create draft**. Show that the draft is editable and that nothing is
+   saved yet.
+3. Edit one step. Press **Save as Skill**.
+4. Open `/skills`. Show the new record. Open it and show **Share this skill** →
+   **Share with Grandma**.
+5. Say: *"This is a real stored record. Grandma gets it in her own list, and I
+   can revoke access at any time."*
 
 ## 2:12-2:37: AWS proof, no hand-waving
 
@@ -113,11 +106,11 @@ Show the repository URL and MIT license.
 - Do not show fake request ids, logs, success states, or a mock MCP transcript.
 - Do not say "definitely missing." The honest phrase is **not confirmed**.
 - If inference is unavailable while recording, show the honest error and
-  continue with the stored-skill/recall/guided path. The demo skills already
-  exist in DynamoDB.
+  continue with the stored-skill and recall path. The demo skills already exist
+  in DynamoDB.
 
 ## Backup plan (if voice recognition fails on camera)
 
 - Use the text input on `/alexa`; the same MCP call and traffic drawer appear.
-- Use `Repeat` on the learner screen to show speech output.
+- Use the text input on `/recall`; the same grounded result appears.
 - Keep the voice attempt short; do not burn 20 seconds debugging the mic.

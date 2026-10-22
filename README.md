@@ -5,26 +5,28 @@
 ONCE is a multimodal personal skill-memory application built for the
 *Build, Ship, Shape: Amazon Developer Hackathon 2026* (primary track: **Alexa+**,
 mini challenge: **AWS Builder**). A person teaches a personal method, by
-speaking, typing, or showing a photo, or by demonstrating a browser task. ONCE
-turns that teaching into a structured, persistent **Skill**. Later, the original
+speaking, typing, or showing a photo. ONCE turns that teaching into a
+structured, persistent **Skill**. Later, the original
 user or someone they authorize can retrieve it, follow it, and get grounded
 feedback when reality differs from what was taught.
 
 ONCE is not a chatbot wrapper: every answer about "what did I teach you" is
 grounded in stored skill records, never invented by a language model.
 
-## The two mandatory experiences
+## The shipped experience
 
-1. **Event-bag packing → "what am I missing?"**
-   Teach items by text, voice or photo on `/`, confirm the draft, save it. Then
-   open `/recall`, ask *"what am I missing for the conference?"*, tick what you
-   already have and get the required items that are **not confirmed**. The
-   answer is computed from the stored skill and says plainly that unconfirmed is
-   not proof of absence.
-2. **Browser workflow → second learner guided with a real DOM highlight**
-   Open `/demo/photoshare`, choose *Teach by showing*, record
-   *open album → select photo → add tag → share*, then **Save and help Grandma**. The learner view outlines the exact recorded control in the live
-   DOM. A wrong click returns a server-side mismatch and does **not** advance.
+**Event-bag packing → "what am I missing?"**
+
+Teach items by text, voice or photo on `/`, confirm the draft, save it. Then
+open `/recall`, ask *"what am I missing for the conference?"*, tick what you
+already have and get the required items that are **not confirmed**. The answer
+is computed from the stored skill and says plainly that unconfirmed is not
+proof of absence.
+
+> **Scope note (2026-10-22):** the PhotoShare browser-workflow demo was removed
+> at product direction. The shipped app demonstrates the event-bag, recall and
+> MCP path. The generic learning engine and MCP session tools remain in the
+> backend for future use, but there is no browser demo surface.
 
 ## Alexa+ track fit (what is and is not claimed)
 
@@ -94,8 +96,8 @@ APP_MODE=mock ./scripts/dev.sh   # offline: seeded skills, no AWS/Ollama
 ```
 
 Open **http://localhost:3000**. The API process mounts the MCP server at
-`/mcp`, so `/alexa` and the HTTP pages share the same store and learner-session
-state in both live and mock mode. The standalone
+`/mcp`, so `/alexa` and the HTTP pages share the same store in both live and
+mock mode. The standalone
 `python -m app.mcp_server` process is optional and used only by the independent
 smoke client.
 
@@ -153,7 +155,7 @@ Open **http://localhost:3000/alexa** for the same server through a real browser
 MCP client. It shows `initialize`, `tools/list`, and the actual `tools/call`
 arguments/result; use the traffic drawer to inspect them. The Next.js dev proxy
 rewrites `/mcp` to `MCP_URL` (default `http://localhost:8000`) so the browser
-stays same-origin. In **mock mode** the same process also seeds the four demo
+stays same-origin. In **mock mode** the same process also seeds the three demo
 skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 
 ## Docs
@@ -171,9 +173,8 @@ skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 | Text, voice (browser speech), and photo teaching UI → editable draft → confirm → persisted skill | Record the <3 min demo video |
 | Real AI extraction with labeled engine metadata (local Ollama text + vision) | Submit the Devpost entry with the video and `SUBMISSION.md` |
 | Grounded recall / "what am I missing" with alias matching and **not confirmed** semantics | |
-| Responsive cream/blue UI (mobile nav, orb, draft review, guided highlight, completion) | |
-| Skill CRUD, versioned edits, sharing/revocation, learner sessions | |
-| Browser-workflow teach-by-demonstration + learner mode with real DOM highlight and target-aware verification | |
+| Responsive cream/blue UI (mobile nav, orb, draft review) | |
+| Skill CRUD, versioned edits, sharing/revocation | |
 | MCP server over Streamable HTTP (protocol **2025-11-25**) with 8-check independent client smoke | |
 | `/alexa` real browser MCP client with voice input, spoken replies, and visible JSON-RPC traffic | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |
@@ -188,8 +189,8 @@ genuine working deployment, no static mock.
 - `demo-teacher` / `demo-learner` are demo identity labels, not authentication.
   Server-side ownership/share checks are real for the selected id; production
   would use Cognito or another IdP.
-- Browser guided learning is limited to the controlled PhotoShare app. ONCE does
-  not automate arbitrary third-party sites or use OS-level overlays.
+- The browser-workflow UI and its seeded skill were removed. The backend
+  learning engine is not exposed by the shipped UI.
 - Alexa+ Add-on SDK access is not available to hackathon participants and is
   not claimed. The MCP server and web simulator are the allowed path.
 

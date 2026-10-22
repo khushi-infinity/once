@@ -10,7 +10,6 @@ import {
   CheckIcon,
   ImageIcon,
   MicIcon,
-  MonitorIcon,
   PencilIcon,
   PlusIcon,
   SparkleIcon,
@@ -48,15 +47,12 @@ type RecognitionCtor = new () => RecognitionLike;
 const PROMPTS = [
   "I pack for a conference with my laptop, charger, HDMI adapter, badge and water bottle…",
   "My tea ritual: boil water, warm the cup, add one spoon of leaves, steep three minutes…",
-  "On PhotoShare I open the album, pick a photo, add a family tag and share it…",
+  "When I close up the house: lock the back door, turn off the lights, set the alarm…",
 ];
 
 function inferSkillType(text: string, mode: Mode): SkillType {
   const value = text.toLowerCase();
   if (mode === "photo") return "packing";
-  if (/\b(open|click|website|browser|app|screen|share|tag|album|photoshare)\b/.test(value)) {
-    return "browser_workflow";
-  }
   if (/\b(boil|tea|coffee|clean|wash|close|lock|routine|first|then|next)\b/.test(value)) {
     return "household_procedure";
   }
@@ -408,7 +404,7 @@ export default function TeachPage() {
           <span>Someone follows</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2.5 sm:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-4">
           <button
             type="button"
             onClick={startTalk}
@@ -437,18 +433,6 @@ export default function TeachPage() {
             </span>
           </button>
 
-          <Link
-            href="/demo/photoshare?mode=teach"
-            className="app-card group flex flex-col items-center px-2 py-4 text-center transition hover:-translate-y-1 hover:border-accent/40 sm:px-4 sm:py-5"
-          >
-            <span className="grid size-11 place-items-center rounded-full bg-surface-2 text-foreground transition group-hover:bg-foreground group-hover:text-white sm:size-12">
-              <MonitorIcon className="size-5" />
-            </span>
-            <span className="mt-3 text-[13px] font-extrabold sm:text-sm">On your screen</span>
-            <span className="mt-0.5 text-[11px] font-semibold leading-tight text-muted sm:text-xs">
-              Teach a website
-            </span>
-          </Link>
         </div>
 
         <Link
@@ -470,14 +454,6 @@ export default function TeachPage() {
             </span>
           </span>
           <ArrowRightIcon className="size-4 shrink-0 text-accent transition group-hover:translate-x-0.5" />
-        </Link>
-
-        <Link
-          href="/demo/photoshare?demo=1"
-          className="mt-3 inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-3 text-xs font-extrabold text-white transition hover:bg-accent"
-        >
-          Try the 60-second story
-          <ArrowRightIcon className="size-3.5" />
         </Link>
 
         <form
@@ -698,7 +674,7 @@ export default function TeachPage() {
               }}
               className="rounded-full bg-surface-2 px-3 py-1.5 text-[10px] font-bold text-muted transition hover:bg-accent-soft hover:text-accent"
             >
-              {i === 0 ? "Conference bag" : i === 1 ? "Tea ritual" : "PhotoShare flow"}
+              {i === 0 ? "Conference bag" : i === 1 ? "Tea ritual" : "Closing routine"}
             </button>
           ))}
         </div>

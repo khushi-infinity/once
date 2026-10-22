@@ -1,8 +1,8 @@
 """Curated demo skills for mock mode.
 
 The live demo store is seeded separately in DynamoDB. Mock mode is what most
-judges can run without AWS credentials, so it ships the same four journeys:
-an event bag, a tea ritual, a desk reset, and the PhotoShare browser workflow.
+people can run without AWS credentials, so it ships the same three journeys:
+an event bag, a tea ritual, and a desk reset.
 
 This is demo *content*, clearly labeled as mock mode, never fake logs or fake
 success. Both the HTTP API and the MCP server run this seed in their own
@@ -10,7 +10,6 @@ process, so `/alexa` works offline and shows real MCP calls against real
 (persisted-for-the-process) records.
 """
 from app.models.core import (
-    ShareGrant,
     Skill,
     SkillItem,
     SkillSource,
@@ -90,52 +89,9 @@ def _desk() -> Skill:
     )
 
 
-def _photoshare() -> Skill:
-    return Skill(
-        skill_id="demo-photoshare",
-        owner_id=TEACHER,
-        title="Send a Photo on Website",
-        type=SkillType.browser_workflow,
-        source=SkillSource.screen_demo,
-        summary="Taught by demonstration; a second person can follow it with a real highlight.",
-        visibility="shared",
-        share_grants=[ShareGrant(learner_id=LEARNER, granted_by=TEACHER)],
-        steps=[
-            SkillStep(
-                order=0,
-                instruction="Open the PhotoShare album",
-                target_element_id="ps-open-album",
-                screen="/demo/photoshare",
-                expected_event="click",
-            ),
-            SkillStep(
-                order=1,
-                instruction="Select the first photo",
-                target_element_id="ps-select-photo",
-                screen="/demo/photoshare",
-                expected_event="click",
-            ),
-            SkillStep(
-                order=2,
-                instruction="Add a tag for the family group",
-                target_element_id="ps-add-tag",
-                screen="/demo/photoshare",
-                expected_event="click",
-            ),
-            SkillStep(
-                order=3,
-                instruction="Share the album",
-                target_element_id="ps-share",
-                screen="/demo/photoshare",
-                expected_event="click",
-            ),
-        ],
-    )
-
-
 def seed_demo_skills(store: SkillStore) -> None:
     """Idempotent: only seed when the demo teacher has no records yet."""
     if store.list_skills_for_reader(TEACHER):
         return
-    for skill in (_bag(), _desk(), _tea(), _photoshare()):
+    for skill in (_bag(), _desk(), _tea()):
         store.create_skill(skill)
