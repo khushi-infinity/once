@@ -32,8 +32,14 @@ class Settings(BaseSettings):
     # --- AI inference --------------------------------------------------------
     # Chosen explicitly, never auto-switched; surfaced in /health and every
     # extraction response. "openai-compatible" works with a local Ollama server
-    # or any hosted OpenAI-compatible endpoint.
+    # or any hosted OpenAI-compatible endpoint. "openrouter" is the hosted
+    # OpenAI-compatible path used for deployment. A fallback provider may be
+    # configured explicitly; if it runs, engine metadata names the fallback.
     inference_provider: str = "openai-compatible"
+    inference_fallback_provider: str = ""
+    # Bound output so OpenRouter's credit preflight does not reject a request
+    # that would otherwise fit. 2048 is enough for one draft or window answer.
+    inference_max_tokens: int = 2048
     openai_base_url: str = "http://localhost:11434/v1"
     openai_api_key: str = "ollama"
     openai_model: str = "qwen2.5-coder:7b"
@@ -46,6 +52,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model_id: str = "gemini-3.8-flash"
     gemini_fallback_model_id: str = "gemini-3.5-flash-lite"
+    # OpenRouter is OpenAI-compatible but has its own base URL, key and model
+    # ids. It is the deployable cloud path when the Google project is blocked.
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: str = ""
+    openrouter_model: str = "google/gemini-3.8-flash"
+    openrouter_vision_model: str = "google/gemini-3.8-flash"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -7,7 +7,8 @@ Starts `python -m app.mcp_server`, then uses the official MCP client to:
      (list/get/recall/start/next/verify) and print sanitized results.
 
 Run: cd backend && uv run python scripts/mcp_smoke.py
-Requires the HTTP API on :8000 (uvicorn app.main:app --port 8000).
+Against a remote deployment, set both URLs and the script skips the local server:
+  ONCE_MCP_URL=https://host/mcp ONCE_API_URL=https://host uv run python scripts/mcp_smoke.py
 """
 import asyncio
 import json
@@ -24,11 +25,13 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 ROOT = Path(__file__).resolve().parents[1]
-MCP_URL = "http://127.0.0.1:8765/mcp"
-API = "http://localhost:8000"
+MCP_URL = os.getenv("ONCE_MCP_URL", "http://127.0.0.1:8765/mcp")
+API = os.getenv("ONCE_API_URL", "http://localhost:8000")
+REMOTE = bool(os.getenv("ONCE_MCP_URL"))
 EXPECTED = {
     "once_list_skills",
     "once_get_skill",
+    "once_get_agent_skill",
     "once_recall_missing",
     "once_start_session",
     "once_next_step",
@@ -114,6 +117,14 @@ async def run() -> int:
                 assert "not accessible" in _text(denied)
                 print("[PASS] once_get_skill denied a stranger (same authz as HTTP)")
 
+                agent_skill = await session.call_tool(
+                    "once_get_agent_skill", {"skill_id": skill_id, "reader_id": owner}
+                )
+                agent_body = _text(agent_skill)
+                assert "once-agent-skill-v1" in agent_body
+                assert "name:" in agent_body and "SKILL.md" in agent_body
+                print("[PASS] once_get_agent_skill returned a portable SKILL.md")
+
                 recalled = await session.call_tool(
                     "once_recall_missing",
                     {"reader_id": owner, "query": f"MCP event kit {tag} what am I missing?", "have": ["passport"]},
@@ -169,6 +180,10 @@ async def run() -> int:
 
 
 def main() -> int:
+    if REMOTE:
+        print(f"[remote] MCP={MCP_URL} API={API}")
+        return asyncio.run(run())
+
     env = os.environ.copy()
     server = subprocess.Popen(
         [sys.executable, "-m", "app.mcp_server"],

@@ -1,18 +1,23 @@
 # ONCE: Demo video script (< 3 minutes)
 
 Goal: prove **real teaching → real storage → grounded recall → real MCP calls
-→ verified guidance**. Lead with the Alexa+ track evidence; do not bury it.
+→ a Mac window guide → a portable Agent Skill**. Lead with the Alexa+ track
+evidence; do not bury it.
 
 ## Pre-record checklist
 
-- `ollama list` shows `qwen2.5-coder:7b` and `qwen2.5vl:3b` (needed for live
-  teach extraction; the curated demo skills already exist in DynamoDB).
+- Inference is working before recording: `/health` reports provider `openrouter`
+  and model `google/gemini-3.8-flash`, or `ollama list` shows
+  `qwen2.5-coder:7b` and `qwen2.5vl:3b` if you deliberately switch to local.
+  The curated demo skills already exist in DynamoDB.
 - Backend API: `cd backend && APP_MODE=live AWS_PROFILE=once-local uv run uvicorn app.main:app --port 8000`
   (this process also serves MCP at `/mcp`; no second server needed)
 - Frontend: `cd frontend && npm run dev` → http://localhost:3000
 - Or one command: `./scripts/dev.sh` (live) / `APP_MODE=mock ./scripts/dev.sh` (offline)
-- `/health` shows `app_mode: live` and `openai-compatible`.
-- `/alexa` shows **MCP connected**, protocol **2025-11-25**, **8 tools**.
+- `/health` shows `app_mode: live`, provider `openrouter`, model `google/gemini-3.8-flash`.
+- `/alexa` shows **MCP connected**, protocol **2025-11-25**, **9 tools**.
+- Build the native helper with `./scripts/build-macos.sh --open`; grant Screen
+  Recording on first use and test one question before recording.
 - Open `/skills` in a second tab if you want to show the shared-skills list
   without leaving the recording flow. The server still uses the demo labels
   `demo-teacher` / `demo-learner`; they are not authentication.
@@ -21,15 +26,15 @@ Goal: prove **real teaching → real storage → grounded recall → real MCP ca
 
 ## 0:00-0:12: Hook
 
-> "Alexa remembers facts. ONCE remembers *how you do things*, and teaches the
-> next person, with proof."
+> "Alexa remembers facts. ONCE remembers *how you do things*, and can hand that
+> method to another person or another agent."
 
-Quick cut of four surfaces: `/alexa`, `/recall`, `/skills`, `/`.
+Quick cut of five surfaces: `/alexa`, `/recall`, `/skills`, the Mac helper, `/`.
 
 ## 0:12-0:42: Alexa+ track: a real MCP client, not a mock
 
 1. Open `/alexa`. Point at the status row: **MCP connected · protocol
-   2025-11-25 · 8 tools**.
+   2025-11-25 · 9 tools**.
 2. Ask by voice (or click): *"What am I missing for the conference?"*
 3. ONCE answers from the stored **My Event Bag**: the required items that are
    not confirmed, plus the line *"Not confirmed is not proof of absence."*
@@ -55,17 +60,26 @@ Quick cut of four surfaces: `/alexa`, `/recall`, `/skills`, `/`.
 5. Say: *"The stored skill is the source of truth. Unconfirmed is not proof of
    absence."*
 
-## 1:12-2:12: Experience B: teach a new skill and share it
+## 1:12-1:55: Experience B: the Mac window guide
 
-1. `/` → type a short familiar method, for example: *"When I close up the
-   house: lock the back door, turn off the lights, set the alarm."*
-2. Press **Create draft**. Show that the draft is editable and that nothing is
-   saved yet.
-3. Edit one step. Press **Save as Skill**.
-4. Open `/skills`. Show the new record. Open it and show **Share this skill** →
-   **Share with Grandma**.
-5. Say: *"This is a real stored record. Grandma gets it in her own list, and I
-   can revoke access at any time."*
+1. Open a real window with a visible menu, for example Preview with a document.
+2. Click the eye in the menu bar, type *"Where is Export?"*, and press **Look at
+   this window**.
+3. Show the real answer, the steps, and the engine badge naming
+   `qwen2.5vl:3b`. The helper captures only this window, on this button press.
+4. Press **Save as skill**. Say: *"The screenshot answered one question. The
+   saved record is the reusable skill."*
+5. If the answer is wrong, say so and do not save it. Do not present a guess as
+   verified.
+
+## 1:55-2:12: Experience C: a skill an AI agent can save
+
+1. `/skills` → open the new **Desktop guide**.
+2. Show **Use this with AI agents** → **Download SKILL.md** and **Download skill
+   folder (.zip)**.
+3. Say: *"This is a portable SKILL.md plus a manifest. An agent can save the
+   folder in its own skills directory. It is the same stored record, not a
+   separate demo."*
 
 ## 2:12-2:37: AWS proof, no hand-waving
 
@@ -86,15 +100,15 @@ Optional 8 seconds:
 uv run python scripts/mcp_smoke.py
 ```
 
-Show `protocol=2025-11-25` and the 8 PASS lines.
+Show `protocol=2025-11-25` and the 9 PASS lines.
 
 ## 2:37-2:55: Close
 
 Hard stop at **2:55**. Do not let the edit cross 3:00; the platform rejects it.
 
 > "ONCE: teach once, let it teach anyone, forever. Every answer comes from your
-> stored skill, never invented. The MCP server, the web client, and the AWS
-> data layer are all in the repo."
+> stored skill, never invented. The MCP server, the web client, the Mac helper,
+> and the AWS data layer are all in the repo."
 
 Show the repository URL and MIT license.
 
@@ -105,6 +119,8 @@ Show the repository URL and MIT license.
   available to hackathon participants.
 - Do not show fake request ids, logs, success states, or a mock MCP transcript.
 - Do not say "definitely missing." The honest phrase is **not confirmed**.
+- Do not claim the Mac helper clicks controls, reads the screen continuously, or
+  knows what is off screen. It answers from one screenshot.
 - If inference is unavailable while recording, show the honest error and
   continue with the stored-skill and recall path. The demo skills already exist
   in DynamoDB.

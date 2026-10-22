@@ -3,20 +3,23 @@
 Two explicitly-selected providers, never auto-substituted:
 
 - ``openai-compatible``, any OpenAI-compatible endpoint. Defaults to a local
-  Ollama server, which is what the developer machine runs for the demo; the
-  same code works with Groq/OpenRouter/any hosted endpoint by changing
-  ``OPENAI_BASE_URL``/``OPENAI_MODEL``.
+  Ollama server, which is what the developer machine runs for the demo.
+- ``openrouter``, OpenRouter's hosted OpenAI-compatible endpoint. It uses the
+  same request shape but its own base URL, key and model ids.
 - ``gemini``, Google AI Studio's Interactions API (free tier).
 
 The provider is chosen with ``INFERENCE_PROVIDER`` and is labeled in every
-response (``engine``), ``/health`` and the UI. ONCE never claims the inference
-runs on AWS: the AWS story is the verified data layer (DynamoDB, S3, IAM).
+response (``engine``), ``/health`` and the UI. An optional
+``INFERENCE_FALLBACK_PROVIDER`` may be configured. A fallback is never silent:
+the result carries ``fallback_from`` and logs the primary failure. ONCE never
+claims the inference runs on AWS: the AWS story is the verified data layer
+(DynamoDB, S3, IAM).
 
 Rules enforced here:
-- no silent substitution: one provider per request, failures surface as real
-  errors to the caller;
+- one primary provider per request; a fallback runs only when it is explicitly
+  configured and the primary reports a provider-level failure;
 - every result carries sanitized engine metadata (provider, model, duration,
-  token usage, request id when available);
+  token usage, request id, fallback_from when applicable);
 - private images/prompts are never logged; only sanitized metadata.
 """
 import base64
@@ -33,7 +36,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 RETRYABLE = {429, 500, 502, 503, 504}
-PROVIDERS = {"openai-compatible", "gemini"}
+PROVIDERS = {"openai-compatible", "openrouter", "gemini"}
 
 
 class InferenceResult:
@@ -48,6 +51,7 @@ class InferenceResult:
         input_tokens: int | None = None,
         output_tokens: int | None = None,
         request_id: str | None = None,
+        fallback_from: str | None = None,
     ):
         self.text = text
         self.provider = provider
@@ -56,6 +60,7 @@ class InferenceResult:
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self.request_id = request_id
+        self.fallback_from = fallback_from
 
     def metadata_dict(self) -> dict[str, Any]:
         return {
@@ -65,6 +70,7 @@ class InferenceResult:
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "request_id": self.request_id,
+            "fallback_from": self.fallback_from,
         }
 
 
@@ -79,6 +85,8 @@ def current_model_id() -> str:
     settings = get_settings()
     if settings.inference_provider == "gemini":
         return settings.gemini_model_id
+    if settings.inference_provider == "openrouter":
+        return settings.openrouter_model
     return settings.openai_model
 
 
@@ -214,11 +222,31 @@ def _generate_openai_compatible(
     system: str | None,
     image: tuple[bytes, str] | None,
     model: str | None = None,
+    provider: str = "openai-compatible",
 ) -> InferenceResult:
     settings = get_settings()
-    model_id = model or settings.openai_model
+    if provider == "openrouter":
+        base = settings.openrouter_base_url.rstrip("/")
+        api_key = settings.openrouter_api_key or "not-needed"
+        default_model = settings.openrouter_model
+        vision_model = settings.openrouter_vision_model or default_model
+        missing = "OPENROUTER_MODEL is not configured for the openrouter provider."
+    else:
+        base = settings.openai_base_url.rstrip("/")
+        api_key = settings.openai_api_key or "not-needed"
+        default_model = settings.openai_model
+        vision_model = settings.openai_vision_model or default_model
+        missing = "OPENAI_MODEL is not configured for the openai-compatible provider."
+
+    if model:
+        model_id = model
+    elif image is not None:
+        model_id = vision_model
+    else:
+        model_id = default_model
     if not model_id:
-        raise ProviderUnavailable("OPENAI_MODEL is not configured for the openai-compatible provider.")
+        raise ProviderUnavailable(missing)
+
     user_content: list[dict] = [{"type": "text", "text": user_text}]
     if image is not None:
         image_bytes, media_type = image
@@ -228,36 +256,38 @@ def _generate_openai_compatible(
     if system:
         messages.append({"role": "system", "content": system + _SYSTEM_SUFFIX})
     messages.append({"role": "user", "content": user_content})
-    base = settings.openai_base_url.rstrip("/")
+    body: dict[str, Any] = {
+        "model": model_id,
+        "messages": messages,
+        "temperature": 0,
+        "stream": False,
+    }
+    if settings.inference_max_tokens > 0:
+        body["max_tokens"] = settings.inference_max_tokens
     resp, duration_ms = _post_with_retries(
         f"{base}/chat/completions",
         headers={
-            "authorization": f"Bearer {settings.openai_api_key or 'not-needed'}",
+            "authorization": f"Bearer {api_key}",
             "content-type": "application/json",
         },
-        body={
-            "model": model_id,
-            "messages": messages,
-            "temperature": 0,
-            "stream": False,
-        },
+        body=body,
     )
     if resp.status_code >= 400:
         raise ProviderUnavailable(
-            f"openai-compatible provider refused the request (HTTP {resp.status_code}): {_error_detail(resp)}"
+            f"{provider} provider refused the request (HTTP {resp.status_code}): {_error_detail(resp)}"
         )
     try:
         data = resp.json()
     except json.JSONDecodeError as exc:
-        raise ProviderUnavailable("openai-compatible provider returned a non-JSON body") from exc
+        raise ProviderUnavailable(f"{provider} provider returned a non-JSON body") from exc
     try:
         text = data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError) as exc:
-        raise ProviderUnavailable("openai-compatible provider returned an unexpected shape") from exc
+        raise ProviderUnavailable(f"{provider} provider returned an unexpected shape") from exc
     usage = data.get("usage") or {}
     result = InferenceResult(
         text=text,
-        provider="openai-compatible",
+        provider=provider,
         model_id=model_id,
         duration_ms=duration_ms,
         input_tokens=usage.get("prompt_tokens"),
@@ -265,10 +295,41 @@ def _generate_openai_compatible(
         request_id=data.get("id") or resp.headers.get("x-request-id"),
     )
     logger.info(
-        "inference provider=openai-compatible model=%s duration_ms=%d in=%s out=%s",
-        result.model_id, result.duration_ms, result.input_tokens, result.output_tokens,
+        "inference provider=%s model=%s duration_ms=%d in=%s out=%s",
+        result.provider, result.model_id, result.duration_ms,
+        result.input_tokens, result.output_tokens,
     )
     return result
+
+
+def generate(
+    user_text: str,
+    system: str | None = None,
+    image: tuple[bytes, str] | None = None,
+    model: str | None = None,
+) -> InferenceResult:
+    """Public provider-neutral generation entry point.
+
+    The caller must choose the provider explicitly through settings. This is
+    used by the window guide; extraction has its own prompt builders above.
+    """
+    return _generate(user_text, system=system, image=image, model=model)
+
+
+def _generate_one(
+    provider: str,
+    user_text: str,
+    system: str | None,
+    image: tuple[bytes, str] | None,
+    model: str | None,
+) -> InferenceResult:
+    if provider == "gemini":
+        return _generate_gemini(user_text, system, image)
+    if provider in {"openai-compatible", "openrouter"}:
+        return _generate_openai_compatible(user_text, system, image, model, provider=provider)
+    raise ProviderUnavailable(
+        f"Unknown inference provider {provider!r}; expected one of {sorted(PROVIDERS)}."
+    )
 
 
 def _generate(
@@ -278,15 +339,43 @@ def _generate(
     model: str | None = None,
 ) -> InferenceResult:
     settings = get_settings()
-    if settings.inference_provider == "gemini":
-        return _generate_gemini(user_text, system, image)
-    if settings.inference_provider == "openai-compatible":
-        return _generate_openai_compatible(user_text, system, image, model)
-    raise ProviderUnavailable(
-        f"Unknown INFERENCE_PROVIDER={settings.inference_provider!r}; "
-        f"expected one of {sorted(PROVIDERS)}."
-    )
+    primary = settings.inference_provider
+    if primary not in PROVIDERS:
+        raise ProviderUnavailable(
+            f"Unknown INFERENCE_PROVIDER={primary!r}; expected one of {sorted(PROVIDERS)}."
+        )
+    chain = [primary]
+    fallback = settings.inference_fallback_provider.strip()
+    if fallback:
+        if fallback not in PROVIDERS:
+            raise ProviderUnavailable(
+                f"Unknown INFERENCE_FALLBACK_PROVIDER={fallback!r}; "
+                f"expected one of {sorted(PROVIDERS)}."
+            )
+        if fallback != primary:
+            chain.append(fallback)
 
+    errors: list[str] = []
+    for index, provider in enumerate(chain):
+        try:
+            result = _generate_one(provider, user_text, system, image, model)
+            if index > 0:
+                result.fallback_from = primary
+            return result
+        except ProviderUnavailable as exc:
+            errors.append(f"{provider}: {exc}")
+            if index + 1 < len(chain):
+                logger.warning(
+                    "inference primary provider=%s failed (%s); trying configured fallback=%s",
+                    provider,
+                    exc,
+                    chain[index + 1],
+                )
+                continue
+            # Surface every configured attempt. A fallback failure must not
+            # hide the primary failure that caused it.
+            raise ProviderUnavailable(" | ".join(errors)) from exc
+    raise ProviderUnavailable("no inference provider was available")
 
 # --------------------------------------------------------------------------
 # Shared JSON parsing for extraction results
@@ -308,9 +397,9 @@ def analyze_text(prompt: str, system: str | None = None) -> InferenceResult:
 
 
 def analyze_image(image_bytes: bytes, media_type: str, prompt: str, system: str | None = None) -> InferenceResult:
-    settings = get_settings()
-    vision_model = settings.openai_vision_model or None
-    return _generate(prompt, system, (image_bytes, media_type), vision_model)
+    # Let the active provider choose its own vision model. Passing one
+    # provider's model id into a fallback provider would be a real bug.
+    return _generate(prompt, system, (image_bytes, media_type))
 
 
 _EXTRACTION_SYSTEM = (

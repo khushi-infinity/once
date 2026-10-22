@@ -90,3 +90,120 @@ def test_gemini_empty_text_is_an_error(monkeypatch):
 
     with pytest.raises(inference.ProviderUnavailable):
         inference._generate_gemini("hello", None, None)
+
+
+def _chain_settings(primary: str, fallback: str = ""):
+    return types.SimpleNamespace(
+        inference_provider=primary,
+        inference_fallback_provider=fallback,
+    )
+
+
+def test_explicit_fallback_runs_and_is_labeled(monkeypatch):
+    calls: list[str] = []
+
+    def fake_generate_one(provider, user_text, system, image, model):
+        calls.append(provider)
+        if provider == "gemini":
+            raise inference.ProviderUnavailable("gemini refused the request (HTTP 403)")
+        return inference.InferenceResult(
+            text="fallback answer",
+            provider=provider,
+            model_id="google/gemini-3.8-flash",
+            duration_ms=7,
+        )
+
+    monkeypatch.setattr(inference, "get_settings", lambda: _chain_settings("gemini", "openrouter"))
+    monkeypatch.setattr(inference, "_generate_one", fake_generate_one)
+
+    result = inference._generate("hello")
+
+    assert calls == ["gemini", "openrouter"]
+    assert result.provider == "openrouter"
+    assert result.fallback_from == "gemini"
+    assert result.text == "fallback answer"
+
+
+def test_primary_success_does_not_call_fallback(monkeypatch):
+    calls: list[str] = []
+
+    def fake_generate_one(provider, user_text, system, image, model):
+        calls.append(provider)
+        return inference.InferenceResult(
+            text="primary answer",
+            provider=provider,
+            model_id="gemini-3.8-flash",
+            duration_ms=4,
+        )
+
+    monkeypatch.setattr(inference, "get_settings", lambda: _chain_settings("gemini", "openrouter"))
+    monkeypatch.setattr(inference, "_generate_one", fake_generate_one)
+
+    result = inference._generate("hello")
+
+    assert calls == ["gemini"]
+    assert result.fallback_from is None
+
+
+def test_unknown_fallback_provider_is_rejected(monkeypatch):
+    monkeypatch.setattr(inference, "get_settings", lambda: _chain_settings("gemini", "magic"))
+
+    with pytest.raises(inference.ProviderUnavailable, match="INFERENCE_FALLBACK_PROVIDER"):
+        inference._generate("hello")
+
+
+def _openrouter_settings(max_tokens: int = 512):
+    return types.SimpleNamespace(
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_api_key="test-key",
+        openrouter_model="google/gemini-3.8-flash",
+        openrouter_vision_model="google/gemini-3.8-flash",
+        inference_max_tokens=max_tokens,
+    )
+
+
+def test_openrouter_uses_its_own_endpoint_key_and_token_cap(monkeypatch):
+    captured: dict = {}
+
+    def fake_post(url, headers, body):
+        captured.update(url=url, headers=headers, body=body)
+        return (
+            FakeResponse(
+                200,
+                {
+                    "id": "gen-1",
+                    "choices": [{"message": {"content": '{"ok": true}'}}],
+                    "usage": {"prompt_tokens": 4, "completion_tokens": 2},
+                },
+            ),
+            6,
+        )
+
+    monkeypatch.setattr(inference, "get_settings", _openrouter_settings)
+    monkeypatch.setattr(inference, "_post_with_retries", fake_post)
+
+    result = inference._generate_openai_compatible(
+        "hello", None, (b"\x89PNG\r\n\x1a\n", "image/png"), provider="openrouter"
+    )
+
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert captured["headers"]["authorization"] == "Bearer test-key"
+    assert captured["body"]["max_tokens"] == 512
+    assert captured["body"]["model"] == "google/gemini-3.8-flash"
+    assert result.provider == "openrouter"
+    assert result.request_id == "gen-1"
+
+
+def test_primary_and_fallback_errors_are_both_surfaced(monkeypatch):
+    def fake_generate_one(provider, user_text, system, image, model):
+        raise inference.ProviderUnavailable(f"{provider} is down")
+
+    monkeypatch.setattr(inference, "get_settings", lambda: _chain_settings("gemini", "openrouter"))
+    monkeypatch.setattr(inference, "_generate_one", fake_generate_one)
+
+    with pytest.raises(inference.ProviderUnavailable) as exc:
+        inference._generate("hello")
+
+    message = str(exc.value)
+    assert "gemini: gemini is down" in message
+    assert "openrouter: openrouter is down" in message

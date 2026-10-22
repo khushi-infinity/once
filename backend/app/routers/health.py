@@ -15,9 +15,11 @@ def health() -> HealthResponse:
     # Mock mode extraction is a deterministic non-AI parser. Do not label it
     # with a cloud model the process will never call.
     if settings.is_live:
+        fallback = settings.inference_fallback_provider.strip() or None
         effective = InferenceStatus(
             provider=settings.inference_provider,
             model=inference.current_model_id(),
+            fallback_provider=fallback if fallback != settings.inference_provider else None,
         )
     else:
         effective = InferenceStatus(provider="deterministic-mock", model=None)

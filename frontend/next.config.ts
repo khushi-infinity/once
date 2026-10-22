@@ -7,6 +7,8 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 const MCP_URL = process.env.MCP_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle for the Docker image.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   // Keep the dev overlay from covering the mobile nav in the demo video.

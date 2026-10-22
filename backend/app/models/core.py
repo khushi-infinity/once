@@ -19,6 +19,7 @@ class SkillType(str, Enum):
     packing = "packing"
     checklist = "checklist"
     household_procedure = "household_procedure"
+    desktop_workflow = "desktop_workflow"
     browser_workflow = "browser_workflow"
 
 

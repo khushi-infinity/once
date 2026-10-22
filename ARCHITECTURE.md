@@ -2,11 +2,11 @@
 
 ## Product shape
 
-Four user-facing destinations: **Teach** (`/`), **Recall** (`/recall`),
-**My Skills** (`/skills`, `/skills/[id]`), and the **Alexa+ MCP surface**
-(`/alexa`). Under them, the concepts below exist in code, not just names in a
-UI. The browser-workflow demo was removed at product direction; the learning
-engine remains backend-only.
+Four web destinations: **Teach** (`/`), **Recall** (`/recall`), **My Skills**
+(`/skills`, `/skills/[id]`), and the **Alexa+ MCP surface** (`/alexa`). A fifth
+surface is the native **macOS Window Guide** menu bar app. Under them, the
+concepts below exist in code, not just names in a UI. The browser-workflow demo
+was removed at product direction; the learning engine remains backend-only.
 
 | Concept | Actual responsibility today |
 | --- | --- |
@@ -14,8 +14,10 @@ engine remains backend-only.
 | **Skill store** | Persistence interface with server-side ownership checks ([backend/app/services/skill_store.py](backend/app/services/skill_store.py)); in-memory (mock) and real DynamoDB (live) behind the same interface |
 | **Recall** | Deterministic retrieval + comparison ([backend/app/services/recall.py](backend/app/services/recall.py)); shared by the HTTP route and MCP tools. No LLM writes an answer about stored items |
 | **Learning engine** | Backend-only session start/resume/verify ([backend/app/services/learning.py](backend/app/services/learning.py)); wrong event, wrong step or wrong DOM element provably does not advance. No browser UI is shipped |
-| **Inference** | Explicit provider, never auto-switched ([backend/app/services/inference.py](backend/app/services/inference.py)): `openai-compatible` (local Ollama or any hosted endpoint) or `gemini` (Interactions API). Every result carries sanitized engine metadata |
-| **MCP server** | Eight tools over Streamable HTTP ([backend/app/mcp_server.py](backend/app/mcp_server.py)) with the same store + authorization rules as HTTP; verified by an independent Python client |
+| **Inference** | Explicit primary provider with optional labeled fallback ([backend/app/services/inference.py](backend/app/services/inference.py)): `openai-compatible` (local Ollama or any hosted endpoint), `openrouter` (hosted path, active demo), or `gemini` (Interactions API). Every result carries sanitized engine metadata and `fallback_from` when failover ran |
+| **Agent Skill export** | Read-only projection of a readable stored record into `SKILL.md` plus a JSON manifest ([backend/app/services/agent_skill.py](backend/app/services/agent_skill.py)); exposed by HTTP download and the `once_get_agent_skill` MCP tool |
+| **Window guide** | Native SwiftUI menu bar helper ([macos/OnceWindow](macos/OnceWindow)) captures one visible window with `screencapture`, sends it to `/api/window/guide`, and receives a vision answer with real engine metadata. The screenshot is processed in memory and not stored |
+| **MCP server** | Nine tools over Streamable HTTP ([backend/app/mcp_server.py](backend/app/mcp_server.py)) with the same store + authorization rules as HTTP; verified by an independent Python client |
 | **MCP client** | `/alexa` uses a real browser Streamable HTTP client ([frontend/lib/mcp.ts](frontend/lib/mcp.ts)): `initialize` → `notifications/initialized` → `tools/list` → `tools/call`; shows protocol and traffic |
 | **Frontend** | Next.js 16 App Router; client pages; dev proxy rewrites `/api/*`, `/health` and `/mcp` to local services (same origin) |
 
@@ -24,6 +26,9 @@ engine remains backend-only.
 ```
 Browser (Teach / Recall / Skills)
    │  fetch /api/…  (same origin)
+   ▼
+macOS Window Guide (one window, on demand)
+   │  multipart /api/window/guide
    ▼
 FastAPI routers ──► Pydantic validation (never trust raw model output)
    │
@@ -37,6 +42,9 @@ SkillStore interface (ownership + share-grant checks server-side)
    ▼
 Inference (explicit provider): proposes structure only.
 A human confirms; Pydantic validates; only then is a Skill persisted.
+
+Readable skill ──► agent_skill.py ──► SKILL.md + once-skill.json
+                                     (web download or MCP tool)
 ```
 
 The MCP server enters at the same store/service layer, not around it:
@@ -72,10 +80,17 @@ calls so the claim is inspectable.
 8. **Guided browser learning is not shipped.** The backend session engine and
    its tests remain, but the PhotoShare demo surface was removed at product
    direction.
-9. **MCP is not a sidecar demo.** The `/alexa` browser client and the Python
+9. **A screenshot is not a skill.** The Mac helper answers one question from
+   one opted-in screenshot. It saves only when the user presses **Save as
+   skill**, and the agent export is generated from that stored record, not from
+   the image. The backend does not persist or log the screenshot.
+10. **Agent Skill export respects access.** It uses the same owner/share check
+    as a normal read and returns a read-only projection; it cannot mutate the
+    stored record or leak a grant.
+11. **MCP is not a sidecar demo.** The `/alexa` browser client and the Python
    smoke client both speak the same Streamable HTTP protocol to the same server
    and tools; neither gets a privileged path.
-10. **Demo identities are labeled.** `demo-teacher` / `demo-learner` are not
+12. **Demo identities are labeled.** `demo-teacher` / `demo-learner` are not
     authentication. They make the authorization checks inspectable; production
     would replace them with Cognito or another IdP.
 
@@ -85,11 +100,13 @@ The backend is stateless per request (InMemory is dev-only) and stores state in
 DynamoDB/S3, so it can run as a single container behind the Next.js frontend.
 The MCP app is mounted in the FastAPI process at `/mcp` (the same process and
 store as the HTTP API; a standalone process is kept for the smoke client). Set
-`MCP_URL` for the Next.js rewrite. Local inference is the demo default; a hosted
-OpenAI-compatible endpoint or Gemini can be selected with env vars without code
-changes. The Gemini adapter uses `gemini-3.8-flash` with
-`gemini-3.5-flash-lite` only for model/availability errors; a project-level 403
-is surfaced immediately. The current project is denied at the provider level,
-so the checked-in demo stays on the local provider and the smoke test reports
-the real 403. The hackathon FAQ does not require a hosted URL for the Alexa+ track;
+`MCP_URL` for the Next.js rewrite. The macOS helper is a separate native app
+that talks only to the local API; it is not bundled into the web deployment.
+The active demo uses OpenRouter's hosted `google/gemini-3.8-flash`; local Ollama,
+OpenRouter and direct Gemini are selected with env vars without code changes.
+An optional `INFERENCE_FALLBACK_PROVIDER` can fail over on a provider-level
+failure, and `engine.fallback_from` names the primary. The direct Gemini adapter
+uses `gemini-3.8-flash` with `gemini-3.5-flash-lite` only for model/availability
+errors; a project-level 403 is surfaced immediately. The current Google project
+is denied at the provider level, so the smoke test reports the real 403. The hackathon FAQ does not require a hosted URL for the Alexa+ track;
 a locally runnable public repo plus the video is enough.

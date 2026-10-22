@@ -38,3 +38,7 @@ frontend/evidence/
 
 # Freebuff workspace bookkeeping (not part of the project)
 .freebuff/
+
+# Swift / macOS helper build artifacts
+macos/OnceWindow/.build/
+macos/ONCEWindow.app/

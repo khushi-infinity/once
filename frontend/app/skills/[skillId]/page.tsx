@@ -18,12 +18,14 @@ const TYPE_LABEL: Record<SkillType, string> = {
   packing: "Packing list",
   checklist: "Checklist",
   household_procedure: "Household procedure",
+  desktop_workflow: "Desktop guide",
   browser_workflow: "Browser workflow",
 };
 
 const TYPE_EMOJI: Record<SkillType, string> = {
   packing: "🧳",
   browser_workflow: "💻",
+  desktop_workflow: "🖥️",
   household_procedure: "🧹",
   checklist: "🗒️",
 };
@@ -227,6 +229,41 @@ function SkillDetailPage() {
               </div>
             </section>
           )}
+
+          <section className="app-card mt-4 overflow-hidden">
+            <div className="flex items-start gap-3 border-b border-border/60 bg-surface-2/60 px-5 py-4">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-accent">
+                <SparkleIcon className="size-5" />
+              </span>
+              <div>
+                <h2 className="text-lg font-extrabold tracking-[-0.02em]">Use this with AI agents</h2>
+                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-muted">
+                  Download a portable <span className="font-mono text-[11px]">SKILL.md</span> plus
+                  a JSON manifest. Put the folder in your agent&apos;s skills directory.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5">
+              <a
+                href={`/api/skills/${skill.skill_id}/agent-skill?reader_id=${encodeURIComponent(reader)}`}
+                download
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-4 py-3 text-xs font-extrabold text-white transition hover:bg-accent"
+              >
+                Download SKILL.md
+              </a>
+              <a
+                href={`/api/skills/${skill.skill_id}/agent-skill?reader_id=${encodeURIComponent(reader)}&format=zip`}
+                download
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 py-3 text-xs font-extrabold transition hover:border-accent"
+              >
+                Download skill folder (.zip)
+              </a>
+            </div>
+            <p className="px-5 pb-4 text-[10px] font-bold leading-relaxed text-muted sm:px-5">
+              This is a read-only export of the same stored record. It does not include your demo
+              identity or any access grant.
+            </p>
+          </section>
 
           <section className="app-card mt-4 overflow-hidden">
             <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">

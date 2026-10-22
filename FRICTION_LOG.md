@@ -170,10 +170,11 @@ and re-tested after ensuring a valid card was attached.
 - **Impact:** about an hour lost across key setup, model-name checks and two
   API surfaces. A successful listing looked like a working provider; the real
   failure only appeared on generation.
-- **Worked around?** No in-account fix found. The app keeps its explicit local
-  OpenAI-compatible provider for the demo, ships the Gemini adapter with
-  primary/fallback model IDs, and reports the real 403 from
-  `backend/scripts/gemini_smoke.py` instead of substituting a mock.
+- **Worked around?** No in-account fix found. The app now uses OpenRouter's
+  hosted `google/gemini-3.8-flash` as the active cloud path, with explicit
+  engine metadata and an optional labeled local fallback. The direct Gemini
+  adapter still ships with primary/fallback model IDs and reports the real 403
+  from `backend/scripts/gemini_smoke.py` instead of substituting a mock.
 - **Suggestion to Google:** distinguish "models visible" from "generation
   allowed" in AI Studio, and put a direct request-access link on the 403. A
   single project-status endpoint would prevent clients from treating a

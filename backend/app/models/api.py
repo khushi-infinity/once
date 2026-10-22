@@ -9,6 +9,7 @@ from app.models.core import Skill, SkillSource, SkillType, Verdict
 class InferenceStatus(BaseModel):
     provider: str
     model: str | None = None
+    fallback_provider: str | None = None
 
 
 class HealthResponse(BaseModel):
@@ -59,6 +60,9 @@ class DraftEngine(BaseModel):
     model: str | None = None
     duration_ms: int | None = None
     request_id: str | None = None
+    # Set only when an explicitly configured fallback provider produced this
+    # result. The UI shows it instead of hiding the failover.
+    fallback_from: str | None = None
 
 
 class TeachExtractResponse(BaseModel):
@@ -123,6 +127,20 @@ class RecallRequest(BaseModel):
 class RecallNotConfirmedItem(BaseModel):
     name: str
     aliases: list[str] = Field(default_factory=list)
+
+
+class WindowGuideStep(BaseModel):
+    order: int = Field(..., ge=0)
+    instruction: str = Field(..., min_length=1, max_length=300)
+
+
+class WindowGuideResponse(BaseModel):
+    answer: str
+    steps: list[WindowGuideStep] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"] = "medium"
+    app_name: str = ""
+    window_title: str = ""
+    engine: DraftEngine
 
 
 class RecallResponse(BaseModel):

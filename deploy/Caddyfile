@@ -1,0 +1,6 @@
+# Caddy gets a public certificate automatically. Point the domain's A record at
+# the host before starting the https profile.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}

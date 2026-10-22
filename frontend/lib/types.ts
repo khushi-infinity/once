@@ -2,6 +2,7 @@ export type SkillType =
   | "packing"
   | "checklist"
   | "household_procedure"
+  | "desktop_workflow"
   | "browser_workflow";
 
 export type SkillSource =
@@ -16,6 +17,7 @@ export type Engine = {
   model: string | null;
   duration_ms: number | null;
   request_id: string | null;
+  fallback_from?: string | null;
 };
 
 export type SkillItem = {

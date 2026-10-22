@@ -17,9 +17,10 @@ Everything else exists to make that one promise work.
 
 ## The shipped experience
 
-> **Scope change (2026-10-22):** the browser-workflow PhotoShare demo was
-> removed at product direction. The backend learning engine remains, but the
-> browser guidance surface is not shipped.
+> **Scope note (2026-10-22):** the browser-workflow PhotoShare demo was removed
+> at product direction. The backend learning engine remains backend-only. The
+> shipped product adds a native macOS window guide and portable Agent Skill
+> export.
 
 ### A. Pack my bag (memory + verification)
 
@@ -32,6 +33,27 @@ notebook, phone).
 
 Honesty rule: `not_verified ≠ missing`. A photo of a closed bag can never
 declare an item missing, it's inside or unseen, and ONCE says which.
+
+### B. Ask about a Mac window
+
+The teacher is looking at an app and cannot find a control. They click the eye
+in the macOS menu bar, ask *"Where is Export?"*, and press **Look at this
+window**. The helper captures that one window, sends it to the configured vision
+model through `/api/window/guide`, and returns a short answer plus steps and the
+real engine name. The user can hear the answer and save it as a
+`desktop_workflow` skill.
+
+The screenshot answers one question. It is not stored by the backend and it is
+not the skill. The saved record is the reusable method.
+
+### C. Give the method to an AI agent
+
+Every readable skill can be exported as a portable `SKILL.md` plus a JSON
+manifest, or a zip folder containing both. The same export is available from
+the web UI and the `once_get_agent_skill` MCP tool. The agent copies the folder
+into its own skills directory and can load the method later. The export contains
+the stored method and provenance, not the owner identity, screenshot, or access
+grants.
 
 ## Skill record (source of truth: [backend/app/models/core.py](backend/app/models/core.py))
 
@@ -53,7 +75,7 @@ declare an item missing, it's inside or unseen, and ONCE says which.
 }
 ```
 
-Skill types: `packing | checklist | household_procedure | browser_workflow`.
+Skill types: `packing | checklist | household_procedure | desktop_workflow | browser_workflow`.
 Teaching sources: `voice | text | photo | camera_demo | screen_demo`.
 
 ## Design language
@@ -65,7 +87,8 @@ Teaching sources: `voice | text | photo | camera_demo | screen_demo`.
   becomes a checklist).
 - No dashboards, no particles, no metaphor the user must decode. The MCP
   protocol is visible in an optional developer drawer, not forced into the
-  primary conversation.
+  primary conversation. The Mac helper is a small menu bar surface, not an
+  always-on overlay.
 
 ## Why this is not a generic assistant
 
@@ -86,11 +109,16 @@ grounded memory, not fluent text.
 
 ## Non-goals
 
-- No OS-level global overlays or arbitrary third-party website automation. The
-  browser-workflow demo was removed.
+- No background screen recording, always-on overlay, or arbitrary third-party
+  website automation. The Mac helper captures one window only when the user
+  presses the button. The browser-workflow demo was removed.
 - No fabricated Alexa+ claims: official Alexa+ Add-on SDK access is unavailable
   to hackathon participants. We ship a real self-hosted MCP server, a real
   browser MCP client, and a simulated experience, labeled truthfully.
 - No claim that inference runs on AWS. The AWS story is the verified data layer
   (DynamoDB, S3, IAM); this account's model access is blocked (see
   `FRICTION_LOG.md`).
+- No claim that the Mac helper clicks controls or knows what is off screen. It
+  answers from one screenshot plus stable macOS conventions.
+- No automatic installation into every agent's skills directory. The export is
+  a portable folder; the user or agent places it.

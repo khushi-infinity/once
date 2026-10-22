@@ -53,6 +53,9 @@ const PROMPTS = [
 function inferSkillType(text: string, mode: Mode): SkillType {
   const value = text.toLowerCase();
   if (mode === "photo") return "packing";
+  if (/\b(window|desktop|menu|button|export|settings|preview|finder|app)\b/.test(value)) {
+    return "desktop_workflow";
+  }
   if (/\b(boil|tea|coffee|clean|wash|close|lock|routine|first|then|next)\b/.test(value)) {
     return "household_procedure";
   }

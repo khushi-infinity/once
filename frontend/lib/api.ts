@@ -21,8 +21,10 @@ export function engineLabel(engine: {
   provider: string;
   model: string | null;
   duration_ms: number | null;
+  fallback_from?: string | null;
 }): string {
   const model = engine.model ? ` · ${engine.model}` : "";
   const time = engine.duration_ms != null ? ` · ${(engine.duration_ms / 1000).toFixed(1)}s` : "";
-  return `${engine.provider}${model}${time}`;
+  const fallback = engine.fallback_from ? ` · fallback from ${engine.fallback_from}` : "";
+  return `${engine.provider}${model}${time}${fallback}`;
 }

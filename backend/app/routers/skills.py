@@ -5,7 +5,9 @@ Authorization rule (server-side, non-negotiable):
 - UPDATE/share/DELETE  owner only
 - sessions    learner-scoped, keyed by the requesting learner_id
 """
-from fastapi import APIRouter, HTTPException, status
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.models.api import (
     CreateSkillRequest,
@@ -17,6 +19,7 @@ from app.models.api import (
 )
 from app.models.core import Skill, SkillItem, SkillStep, utcnow
 from app.services import learning
+from app.services.agent_skill import render_bundle, render_skill_md, slugify
 from app.services.skill_store import get_store, new_skill_id
 
 router = APIRouter(prefix="/api", tags=["skills"])
@@ -69,6 +72,35 @@ def get_skill(skill_id: str, reader_id: str) -> Skill:
     if skill is None:
         raise HTTPException(status_code=404, detail="skill not found or not accessible")
     return skill
+
+
+@router.get("/skills/{skill_id}/agent-skill")
+def export_agent_skill(
+    skill_id: str,
+    reader_id: str,
+    format: Literal["md", "zip"] = "md",
+) -> Response:
+    """Export a readable skill as a portable Agent Skill folder.
+
+    The same ownership and share-grant checks as ``GET /api/skills/{id}``
+    apply. Nothing is written; this is a read-only projection of the stored
+    record.
+    """
+    skill = get_store().get_skill(skill_id, reader_id)
+    if skill is None:
+        raise HTTPException(status_code=404, detail="skill not found or not accessible")
+    name = slugify(skill.title)
+    if format == "zip":
+        return Response(
+            content=render_bundle(skill),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}.zip"'},
+        )
+    return Response(
+        content=render_skill_md(skill),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{name}-SKILL.md"'},
+    )
 
 
 @router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)

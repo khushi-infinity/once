@@ -30,24 +30,41 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 def _require_ai_configured(for_image: bool = False) -> None:
     settings = get_settings()
-    if settings.inference_provider not in inference.PROVIDERS:
+    chain = [settings.inference_provider]
+    fallback = settings.inference_fallback_provider.strip()
+    if fallback and fallback != settings.inference_provider:
+        chain.append(fallback)
+    unknown = [p for p in chain if p not in inference.PROVIDERS]
+    if unknown:
         raise HTTPException(
             status_code=503,
             detail=(
-                f"Unknown INFERENCE_PROVIDER={settings.inference_provider!r}. "
+                f"Unknown inference provider {unknown[0]!r}. "
                 f"Set one of {sorted(inference.PROVIDERS)} in backend/.env."
             ),
         )
-    if settings.inference_provider == "gemini" and not settings.gemini_api_key:
+
+    def has_credentials(provider: str) -> bool:
+        if provider == "gemini":
+            return bool(settings.gemini_api_key)
+        if provider == "openrouter":
+            return bool(settings.openrouter_api_key)
+        return True
+
+    if not any(has_credentials(provider) for provider in chain):
         raise HTTPException(
             status_code=503,
-            detail="GEMINI_API_KEY is not configured. Add a free key to backend/.env "
-            "or set INFERENCE_PROVIDER=openai-compatible.",
+            detail="No inference provider has credentials. Add GEMINI_API_KEY or "
+            "OPENROUTER_API_KEY to backend/.env.",
         )
-    if for_image and settings.inference_provider == "openai-compatible":
-        # Ollama's text-only models cannot read pixels; say so instead of faking it.
-        logger.info("image extraction requested with provider=%s model=%s",
-                    settings.inference_provider, settings.openai_model)
+    if for_image:
+        # Image extraction needs a vision-capable model. Do not block here on a
+        # text-only Ollama model: let the provider report the real failure so
+        # the caller sees what actually happened.
+        logger.info(
+            "image extraction requested with providers=%s",
+            ",".join(chain),
+        )
 
 
 @router.post("/extract", response_model=TeachExtractResponse)

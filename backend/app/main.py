@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.mcp_server import mcp
-from app.routers import health, recall, skills, teach
+from app.routers import health, recall, skills, teach, window_guide
 
 # Serve the MCP Streamable HTTP endpoint from the same process as the HTTP API.
 # That is what makes /alexa truthful in BOTH modes: in live mode both surfaces
@@ -43,6 +43,7 @@ app.include_router(health.router)
 app.include_router(skills.router)
 app.include_router(teach.router)
 app.include_router(recall.router)
+app.include_router(window_guide.router)
 
 # Keep this last: the mounted MCP app owns /mcp and must not shadow the API.
 app.mount("/", mcp_http_app)

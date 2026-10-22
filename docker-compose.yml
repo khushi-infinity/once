@@ -1,0 +1,54 @@
+# Single-host deployment for the ONCE demo.
+#
+#   cp .env.example backend/.env    # fill in APP_MODE, AWS, and inference
+#   docker compose up --build
+#
+# The backend uses the AWS default credential chain. On EC2/ECS/App Runner,
+# attach an instance or task role. On a laptop, export temporary credentials or
+# run with a bind-mounted ~/.aws (see DEPLOYMENT.md).
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_MODE: live
+      AWS_PROFILE: ${AWS_PROFILE:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+        MCP_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Optional TLS terminator for a single EC2/Lightsail host:
+  #   DOMAIN=demo.example.com docker compose --profile https up --build -d
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

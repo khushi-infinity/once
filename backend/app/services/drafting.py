@@ -54,6 +54,7 @@ def draft_from_result(
             model=result.model_id,
             duration_ms=result.duration_ms,
             request_id=result.request_id,
+            fallback_from=result.fallback_from,
         ),
     )
 

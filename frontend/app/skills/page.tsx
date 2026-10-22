@@ -17,12 +17,14 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "packing", label: "Packing" },
   { value: "household_procedure", label: "Home" },
+  { value: "desktop_workflow", label: "Desktop" },
   { value: "checklist", label: "Other" },
 ];
 
 const TYPE_STYLE: Record<SkillType, { emoji: string; bg: string }> = {
   packing: { emoji: "🧳", bg: "bg-warm-soft" },
   browser_workflow: { emoji: "💻", bg: "bg-accent-soft" },
+  desktop_workflow: { emoji: "🖥️", bg: "bg-accent-soft" },
   household_procedure: { emoji: "🧹", bg: "bg-[#f2f7e8]" },
   checklist: { emoji: "🗒️", bg: "bg-[#f6eef8]" },
 };

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>ONCE Window Guide</string>
+    <key>CFBundleDisplayName</key>
+    <string>ONCE Window Guide</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.once.windowguide</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>OnceWindow</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>ONCE captures the window you choose so it can answer your question about that window.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>ONCE listens only while voice input is on, so you can ask about the window by voice.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>ONCE turns your spoken question into text. It does not keep the audio.</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+</dict>
+</plist>

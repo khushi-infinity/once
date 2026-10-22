@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.models.api import NextStepResponse, VerifyStepResponse
 from app.models.core import Skill
 from app.services import inference, learning
+from app.services.agent_skill import manifest, render_skill_md, slugify
 from app.services.drafting import deterministic_extract, draft_from_result
 from app.services.recall import RecallNoMatch, recall_for_reader
 from app.services.skill_store import get_store
@@ -50,6 +51,27 @@ def once_get_skill(skill_id: str, reader_id: str) -> dict:
     if skill is None:
         return {"error": "skill not found or not accessible", "skill_id": skill_id}
     return _skill_dict(skill)
+
+
+@mcp.tool()
+def once_get_agent_skill(skill_id: str, reader_id: str) -> dict:
+    """Return a portable Agent Skill for this stored record.
+
+    The result contains a complete ``SKILL.md`` (YAML frontmatter plus the
+    stored method) and a JSON manifest. An agent can save it in its skills
+    directory. The same ownership/share checks as `once_get_skill` apply.
+    """
+    skill = get_store().get_skill(skill_id, reader_id)
+    if skill is None:
+        return {"error": "skill not found or not accessible", "skill_id": skill_id}
+    name = slugify(skill.title)
+    return {
+        "format": "once-agent-skill-v1",
+        "name": name,
+        "filename": f"{name}/SKILL.md",
+        "skill_md": render_skill_md(skill),
+        "manifest": manifest(skill),
+    }
 
 
 @mcp.tool()
