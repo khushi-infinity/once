@@ -15,6 +15,14 @@ front of you.
 ONCE is not a chatbot wrapper: every answer about "what did I teach you" is
 grounded in stored skill records, never invented by a language model.
 
+**Live demo:** https://once-skill-memory.onrender.com
+**Public MCP endpoint:** https://once-skill-memory-api.onrender.com/mcp
+
+The public demo is a real Render deployment backed by the live DynamoDB and S3
+data layer. Both services are on the free plan, so the first request after a
+pause can take a few seconds. The MCP smoke test passes 9/9 against both the
+backend URL and the frontend proxy.
+
 ## What ships
 
 1. **Event-bag packing to "what am I missing?"**
@@ -157,8 +165,17 @@ cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_l
 
 ### Deploy
 
-Both services have production Dockerfiles and a single-host Compose file. The
-shortest path is one EC2 instance with an instance role, `backend/.env`, and
+The current public demo runs on Render as two services:
+
+- `https://once-skill-memory.onrender.com` (Next.js frontend)
+- `https://once-skill-memory-api.onrender.com` (FastAPI plus MCP)
+
+Both build from this repo on `main`. The backend uses the same live DynamoDB,
+S3, and least-privilege data identity as local live mode. The AWS keys are
+server-side environment variables in Render, never in the repo or the browser.
+
+Both services also have production Dockerfiles and a single-host Compose file.
+The AWS path is one EC2 instance with an instance role, `backend/.env`, and
 Caddy TLS. Managed alternatives are App Runner plus Amplify, or ECS Fargate plus
 ALB. See [DEPLOYMENT.md](DEPLOYMENT.md) for the env matrix, commands, and the
 public-demo access warning.
@@ -211,11 +228,12 @@ skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 | Shareable desktop guide records with typed `desktop_workflow` skills | |
 | `/alexa` real browser MCP client with voice input, spoken replies, and visible JSON-RPC traffic | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |
+| Public Render demo with live DynamoDB, OpenRouter, and MCP 9/9 through both URLs | Record and submit the demo video |
 | Backend **25 live tests** / 24 mock tests passing; frontend lint + production build clean | |
 
-A public hosted URL is **not required** by the hackathon FAQ; a locally runnable
-public repo plus the demo video is enough. If a URL is added later, it must be a
-genuine working deployment, no static mock.
+The public URL is a genuine working deployment, not a static mock. It reports
+`app_mode: live`, uses the real DynamoDB tables, and calls OpenRouter for text
+and vision.
 
 ### Demo-only, clearly labeled
 

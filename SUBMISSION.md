@@ -3,6 +3,8 @@
 **Track:** Alexa+ (simulated-experience path with a self-hosted MCP server)
 **Mini challenge:** AWS Builder
 **Repo:** https://github.com/khushi-infinity/once
+**Live demo:** https://once-skill-memory.onrender.com
+**Public MCP endpoint:** https://once-skill-memory-api.onrender.com/mcp
 **License:** MIT
 **Demo video:** add the public YouTube/Vimeo URL before submitting
 
@@ -257,16 +259,27 @@ server-side and covered by tests.
   sharing with an audit trail.
 - Let teachers attach photo evidence to a packing item and verify it with a
   vision model, without letting the model write to storage.
-- Run the public demo on AWS using [DEPLOYMENT.md](DEPLOYMENT.md), while keeping
-  the same explicit mock/live split.
+- Move the current Render demo to AWS using [DEPLOYMENT.md](DEPLOYMENT.md) for
+  an always-on instance role, while keeping the same explicit mock/live split.
 - Add automatic installation of an exported `SKILL.md` into common agent skill
   directories, with a version diff so a family or team can review changes.
 
 ## Judge quickstart
 
-Prerequisites: Node 22+, [uv](https://docs.astral.sh/uv/), and either an
-OpenRouter key or Ollama if you want to exercise live teach extraction. The
-curated demo skills are already in DynamoDB, so recall works without inference.
+Fastest path: open https://once-skill-memory.onrender.com. The public demo is
+live, backed by DynamoDB, and calls OpenRouter for text and vision. Both Render
+services are on the free plan, so the first request after a pause may take a few
+seconds.
+
+The MCP endpoint is public at
+https://once-skill-memory-api.onrender.com/mcp. The same endpoint is also
+proxied through the web origin at
+https://once-skill-memory.onrender.com/mcp.
+
+Prerequisites for local run: Node 22+, [uv](https://docs.astral.sh/uv/), and
+either an OpenRouter key or Ollama if you want to exercise live teach
+extraction. The curated demo skills are already in DynamoDB, so recall works
+without inference.
 
 ```bash
 # 1. Backend API (port 8000): also serves MCP at /mcp

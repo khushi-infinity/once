@@ -16,6 +16,14 @@ Last run: 2026-10-22, runtime identity `arn:aws:iam::552952091217:user/once-loca
 (least-privilege IAM user, the app never runs as root; see AWS_SETUP.md).
 Latest: `smoke_live` **4/4**, live pytest **25 passed, 1 skipped**, MCP client smoke **9/9**.
 
+Public deployment: https://once-skill-memory.onrender.com (frontend) and
+https://once-skill-memory-api.onrender.com (API and MCP). The public backend
+uses the same DynamoDB tables, S3 bucket and `once-local` data identity. The
+identity keys are server-side Render environment variables, never in the repo
+or the browser. Public `/health` reports `app_mode: live`, the skills endpoint
+returns the three stored demo skills, and the remote MCP smoke passes **9/9**
+through both the backend URL and the frontend proxy.
+
 ## Verified claims
 
 | # | Claim | Evidence mechanism | Status |

@@ -1,6 +1,7 @@
 # Testing ONCE
 
-Everything below was run on 2026-10-22. Commands are copy-pasteable.
+Everything below was run on 2026-10-22. The public Render deployment was
+verified on 2026-10-23. Commands are copy-pasteable.
 
 ## 1. Backend static + unit/integration tests
 
@@ -179,7 +180,59 @@ only `app/` plus the locked environment; `backend/.env` is excluded by
 `.dockerignore` and supplied at runtime. A live container needs the instance or
 task role, not static AWS keys. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## 9. Manual browser flow (2-3 minutes)
+## 9. Public deployment
+
+The public demo is two Render services:
+
+- App: `https://once-skill-memory.onrender.com`
+- API and MCP: `https://once-skill-memory-api.onrender.com`
+
+Verify the deployed stack:
+
+```bash
+curl -fsS https://once-skill-memory.onrender.com/health
+curl -fsS "https://once-skill-memory.onrender.com/api/skills?reader_id=demo-teacher"
+curl -fsS "https://once-skill-memory.onrender.com/api/skills/b7291dc416cf/agent-skill?reader_id=demo-teacher" | head
+```
+
+Expected: `/health` reports `app_mode: live` and provider `openrouter`; the
+skills response contains the three stored demo skills; the agent export returns
+a real `SKILL.md`.
+
+Remote MCP smoke through both the backend URL and the frontend proxy:
+
+```bash
+cd backend
+ONCE_MCP_URL=https://once-skill-memory-api.onrender.com/mcp \
+  ONCE_API_URL=https://once-skill-memory-api.onrender.com \
+  uv run python scripts/mcp_smoke.py
+
+ONCE_MCP_URL=https://once-skill-memory.onrender.com/mcp \
+  ONCE_API_URL=https://once-skill-memory.onrender.com \
+  uv run python scripts/mcp_smoke.py
+```
+
+Expected: `9/9` checks pass for both URLs. The backend allowlist is set with
+`MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS`; an empty or mismatched allowlist
+returns `421 Invalid Host header`.
+
+Real hosted inference:
+
+```bash
+curl -fsS -X POST https://once-skill-memory.onrender.com/api/teach/extract \
+  -H 'content-type: application/json' \
+  -d '{"transcript":"I pack a towel, a water bottle and a lock for the gym.","skill_type":"packing"}'
+```
+
+Expected: a structured draft with `engine.provider: openrouter` and
+`engine.model: google/gemini-3.8-flash`. A provider failure returns a real
+`502`, never a mock draft.
+
+Render free services spin down after inactivity. Wake the app before recording
+the demo. The backend uses the least-privilege data identity through
+server-side Render environment variables; rotate those keys after the demo.
+
+## 10. Manual browser flow (2-3 minutes)
 
 1. `/health` shows `app_mode: live` and the active inference provider/model.
 2. `/` → type the event-bag paragraph → **Create draft** → verify the

@@ -180,6 +180,51 @@ and re-tested after ensuring a valid card was attached.
   single project-status endpoint would prevent clients from treating a
   successful model list as proof that generation works.
 
+## 9. The AWS deployment account is read-only for the services we needed (BLOCKER)
+
+- **Date:** 2026-10-23
+- **Task attempted:** deploy the public demo to AWS with the existing
+  DynamoDB/S3 data layer, ideally one EC2 host or App Runner.
+- **What happened:** the available deployment account (`881893827573`) has an
+  organization service control policy that explicitly denies `ec2:RunInstances`,
+  `dynamodb:*`, `ecr:*`, `lambda:*`, `apprunner:*`, `lightsail:Create*`, and
+  `s3:CreateBucket`. Reads for some services are allowed, which makes the
+  account look usable until the first create call. The data layer lives in a
+  different account (`552952091217`) where the only available identity,
+  `once-local`, is intentionally data-only and cannot create compute.
+- **Impact:** an AWS-hosted public demo was not possible without a new
+  least-privilege deployment role or account-level SCP change that we could not
+  self-serve before the deadline.
+- **Worked around?** Yes: the public demo runs on Render, with the backend still
+  using the real DynamoDB/S3 data layer and the same `once-local` identity. The
+  frontend and backend are separate Render services, and the MCP smoke passes
+  9/9 through both public URLs. The AWS deployment paths remain documented in
+  `DEPLOYMENT.md` for an account with the required create permissions.
+- **Suggestion to AWS/hackathon organizers:** publish the sandbox SCP allowlist
+  up front, and provide a deploy role that can create the services the
+  challenge asks for (compute, registry, database, storage) without opening
+  billing or IAM. A read-only sandbox plus a data-only runtime identity is not
+  enough to ship a public URL.
+
+## 10. MCP DNS-rebinding protection rejects public hosts by default (small but confusing)
+
+- **Date:** 2026-10-23
+- **Task attempted:** call the deployed MCP endpoint from the official Python
+  client and from the browser `/alexa` client.
+- **What happened:** the server returned `421 Misdirected Request` with
+  `Invalid Host header: <render-host>`. The MCP SDK enables host validation by
+  default; a local `localhost` test passes, so the failure only appears after
+  deployment.
+- **Impact:** the first remote smoke run failed at `initialize` even though the
+  MCP server was healthy and the HTTP API worked.
+- **Worked around?** Yes: `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` now
+  configure the transport security allowlist, and the deployed env includes the
+  Render hostnames. The smoke test passes through both the backend URL and the
+  frontend proxy.
+- **Suggestion to the MCP SDK/docs:** show the deployed-host allowlist in the
+  Streamable HTTP quickstart, not only the localhost example. The `421` is
+  correct behavior, but the error is easy to misread as a proxy or TLS problem.
+
 ---
 
 *Entries in this file count only what we could not self-serve around before

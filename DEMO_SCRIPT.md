@@ -10,9 +10,15 @@ evidence; do not bury it.
   and model `google/gemini-3.8-flash`, or `ollama list` shows
   `qwen2.5-coder:7b` and `qwen2.5vl:3b` if you deliberately switch to local.
   The curated demo skills already exist in DynamoDB.
-- Backend API: `cd backend && APP_MODE=live AWS_PROFILE=once-local uv run uvicorn app.main:app --port 8000`
-  (this process also serves MCP at `/mcp`; no second server needed)
-- Frontend: `cd frontend && npm run dev` → http://localhost:3000
+- Public demo: https://once-skill-memory.onrender.com (wake it first; the free
+  plan spins down after inactivity). Public MCP:
+  https://once-skill-memory-api.onrender.com/mcp
+- For the Mac helper, run the local backend: `cd backend && APP_MODE=live
+  AWS_PROFILE=once-local uv run uvicorn app.main:app --port 8000` (this process
+  also serves MCP at `/mcp`; no second server needed). The Mac helper and the
+  public web app read and write the same DynamoDB tables.
+- Frontend: use the public URL, or `cd frontend && npm run dev` →
+  http://localhost:3000
 - Or one command: `./scripts/dev.sh` (live) / `APP_MODE=mock ./scripts/dev.sh` (offline)
 - `/health` shows `app_mode: live`, provider `openrouter`, model `google/gemini-3.8-flash`.
 - `/alexa` shows **MCP connected**, protocol **2025-11-25**, **9 tools**.
@@ -66,7 +72,8 @@ Quick cut of five surfaces: `/alexa`, `/recall`, `/skills`, the Mac helper, `/`.
 2. Click the eye in the menu bar, type *"Where is Export?"*, and press **Look at
    this window**.
 3. Show the real answer, the steps, and the engine badge naming
-   `qwen2.5vl:3b`. The helper captures only this window, on this button press.
+   `openrouter / google/gemini-3.8-flash`. The helper captures only this window,
+   on this button press.
 4. Press **Save as skill**. Say: *"The screenshot answered one question. The
    saved record is the reusable skill."*
 5. If the answer is wrong, say so and do not save it. Do not present a guess as
