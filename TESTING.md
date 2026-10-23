@@ -83,17 +83,21 @@ cd frontend && npm run dev
 Open `http://localhost:3000/alexa` and check:
 
 - status says **MCP connected**, protocol **2025-11-25**, **9 tools**;
-- ask *"What am I missing for the conference?"* → opens the stored **My Event
-  Bag** and says required items are **not confirmed** (never "definitely
-  missing");
+- ask *"What am I missing for the conference?"* → after teaching a packing
+  skill (teach the event-bag sentence on `/` first), it opens the stored skill
+  and says required items are **not confirmed** (never "definitely missing").
+  If nothing matching was taught, it returns an honest no-match error —
+  never an invented list;
 - open **Show MCP traffic** → a real `tools/call once_recall_missing` entry with
   arguments and result;
 - ask *"Remember I pack a laptop and charger"* → a real `once_extract_draft`
   call; **Review and save the draft** opens the Teach screen with the exact
   draft loaded, and **Save as Skill** persists it.
 
-Mock mode seeds the same three demo skills in the same process, so this works
-without AWS. If the page says **MCP unavailable**, the API process is not
+Mock mode seeds two demo skills (a tea ritual and a desk reset) in the same
+process, so `/alexa` works without AWS; the event bag is taught live through
+the real teach flow instead of being pre-seeded. If the page says **MCP
+unavailable**, the API process is not
 running or `MCP_URL` does not match it (default `http://localhost:8000`). It
 does not fall back to a fake response.
 
@@ -215,8 +219,8 @@ empty or mismatched allowlist returns `421 Invalid Host header`.
 Public browser check (Playwright, headless Chromium, 2026-10-23):
 
 - `/` loads with the voice-first home and live mode badge.
-- `/skills` renders **My Event Bag**, **Make Tea (My Way)** and **Clean My
-  Desk**.
+- `/skills` renders **Make Tea (My Way)** and **Clean My Desk** (the event-bag
+  skill is taught during the recording, not pre-seeded).
 - `/recall` loads the grounded-recall screen.
 - `/alexa` shows **MCP CONNECTED**, protocol **2025-11-25** and **9 tools**.
   No browser console errors.

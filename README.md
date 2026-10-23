@@ -199,7 +199,7 @@ Or run both with one command:
 APP_MODE=mock ./scripts/dev.sh   # offline: seeded demo skills, no AWS/Ollama needed
 ```
 
-Mock mode (`APP_MODE=mock`) exists so judges can run the full teach → recall → `/alexa` loop **without AWS**: a clearly-labeled deterministic parser drafts text teaching (photo teaching honestly refuses, since there is no vision in mock mode), and three demo skills are seeded. `/health` always reports the mode and active inference provider.
+Mock mode (`APP_MODE=mock`) exists so judges can run the full teach → recall → `/alexa` loop **without AWS**: a clearly-labeled deterministic parser drafts text teaching (photo teaching honestly refuses, since there is no vision in mock mode), and two demo skills (a tea ritual and a desk reset) are seeded. The event-bag packing skill is **not** seeded — it is taught live through the real teach flow, so the recall and MCP answers come from a record the presenter actually created. `/health` always reports the mode and active inference provider.
 
 ## Inference providers
 

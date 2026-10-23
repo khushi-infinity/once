@@ -44,13 +44,18 @@ Quick cut of five surfaces: `/alexa`, `/recall`, `/skills`, the Mac helper, `/`.
 
 1. Open `/alexa`. Point at the status row: **MCP connected · protocol
    2025-11-25 · 9 tools**.
-2. Ask by voice (or click): *"What am I missing for the conference?"*
-3. ONCE answers from the stored **My Event Bag**: the required items that are
-   not confirmed, plus the line *"Not confirmed is not proof of absence."*
-4. Open **Show MCP traffic**. Point at the real `tools/call
-   once_recall_missing` entry: arguments (`reader_id`, `query`, `have`) and the
-   returned `not_confirmed` list.
-5. Say: *"This page is a real MCP client. It performs initialize, tools/list and
+2. Teach the event bag live, through MCP (it is intentionally not pre-seeded):
+   ask by voice (or type) *"Remember I pack a laptop, charger, water bottle,
+   notebook, pen and an extra bag for the conference."*
+3. ONCE calls `once_extract_draft`; press **Review and save the draft** on the
+   Teach screen and confirm with **Save as Skill**. Say: *"Nothing is stored
+   until I confirm — the AI only drafted."*
+4. Back on `/alexa`, ask: *"What am I missing for the conference?"* ONCE
+   answers from the stored **My Event Bag** you just taught.
+5. Open **Show MCP traffic**. Point at the real `tools/call` entries
+   (`once_extract_draft`, then `once_recall_missing` with `reader_id`, `query`,
+   `have`) and the returned `not_confirmed` list.
+6. Say: *"This page is a real MCP client. It performs initialize, tools/list and
    tools/call over Streamable HTTP against our self-hosted server. The gated
    Alexa+ Add-on tools are select-partner only; this is the allowed simulated
    experience."*
@@ -59,10 +64,10 @@ Quick cut of five surfaces: `/alexa`, `/recall`, `/skills`, the Mac helper, `/`.
 
 1. `/recall` → shown as **You** → *"what am I missing for the conference?"*
    → **Ask ONCE**.
-2. Before ticking, point at the linked stored skill (**My Event Bag**, version
-   1, six items) for 3-4 seconds: *"This is the bag I taught earlier; it is a
-   real record, not a prompt."* If you have 5 spare seconds, open the skill
-   detail and show the items.
+2. Before ticking, point at the linked stored skill (**My Event Bag**, taught
+   via MCP a moment earlier) for 3-4 seconds: *"This is the bag I taught just
+   now; it is a real record, not a prompt."* If you have 5 spare seconds, open
+   the skill detail and show the items.
 3. Tick **Laptop** and **Charger**.
 4. Press **Check my list**. Show the remaining items tagged **Not confirmed**
    (not "missing") and read the explanation.
@@ -132,8 +137,9 @@ Show the repository URL and MIT license.
 - Do not claim the Mac helper clicks controls, reads the screen continuously, or
   knows what is off screen. It answers from one screenshot.
 - If inference is unavailable while recording, show the honest error and
-  continue with the stored-skill and recall path. The demo skills already exist
-  in DynamoDB.
+  continue with the stored-skill and recall path. **Make Tea (My Way)** and
+  **Clean My Desk** already exist in DynamoDB; teach the event bag live with
+  the text input if the voice path fails.
 
 ## Backup plan (if voice recognition fails on camera)
 
