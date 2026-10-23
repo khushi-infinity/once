@@ -413,8 +413,10 @@ and an actionable suggestion.
 - The MCP server is mounted in the FastAPI process (a standalone process is
   also available for the independent smoke client). The Next.js rewrite proxies
   `/mcp` to it for same-origin browser calls.
-- No public hosted URL is required by the hackathon FAQ; the repo and video are
-  the submission.
+- The public demo runs on Render at https://once-skill-memory.onrender.com. The
+  free plan spins down after inactivity, so the first request after a pause is
+  slow. The backend still uses the live AWS data layer; the Render environment
+  holds the least-privilege data keys server-side.
 
 ## Submission checklist
 
@@ -424,8 +426,9 @@ and an actionable suggestion.
 - [ ] Track selected: **Alexa+**.
 - [ ] Mini challenge selected: **AWS Builder**.
 - [ ] Product feedback answers (use `FRICTION_LOG.md`).
-- [ ] If the form asks for a URL: add a hosted demo only if it is genuinely
-      working; otherwise point to the local run instructions. The FAQ says a
-      locally runnable public repo plus video is enough.
+- [ ] If the form asks for a URL, use the live demo at
+      https://once-skill-memory.onrender.com and the public MCP endpoint at
+      https://once-skill-memory-api.onrender.com/mcp. Both are genuinely
+      working; the local run instructions remain in `README.md`.
 - [ ] Re-check that no unverified claim (Bedrock, AWS AI, Alexa+ SDK access)
       appears in the video or text.
