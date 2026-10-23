@@ -12,17 +12,29 @@ Infrastructure recreation (idempotent, one-time admin):
 cd backend && AWS_PROFILE=once uv run python scripts/provision_aws.py
 ```
 
-Last run: 2026-10-22, runtime identity `arn:aws:iam::552952091217:user/once-local`
-(least-privilege IAM user, the app never runs as root; see AWS_SETUP.md).
-Latest: `smoke_live` **4/4**, live pytest **25 passed, 1 skipped**, MCP client smoke **9/9**.
+Last local run: 2026-10-22, runtime identity
+`arn:aws:iam::552952091217:user/once-local` (least-privilege IAM user; see
+AWS_SETUP.md). Latest local results: `smoke_live` **4/4**, live pytest
+**25 passed, 1 skipped**, MCP client smoke **9/9**.
 
-Public deployment: https://once-skill-memory.onrender.com (frontend) and
-https://once-skill-memory-api.onrender.com (API and MCP). The public backend
-uses the same DynamoDB tables, S3 bucket and `once-local` data identity. The
-identity keys are server-side Render environment variables, never in the repo
-or the browser. Public `/health` reports `app_mode: live`, the skills endpoint
+The public App Runner backend uses the scoped role
+`arn:aws:iam::552952091217:role/once-apprunner-backend-instance`, not root. The
+App Runner, ECR, IAM, and Secrets Manager resources were bootstrapped with the
+account root identity because that was the only identity with create
+permissions available at the deadline. The running services do not use root.
+
+Public AWS deployment: https://nrsvfngagk.us-east-1.awsapprunner.com (frontend)
+and https://m7ypexbma7.us-east-1.awsapprunner.com (API and MCP). Both run as
+AWS App Runner services in `us-east-1` from `linux/amd64` ECR images. The
+backend uses the same DynamoDB tables and private S3 bucket through the scoped
+`once-apprunner-backend-instance` role; the OpenRouter key is a Secrets Manager
+runtime secret. Public `/health` reports `app_mode: live`, the skills endpoint
 returns the three stored demo skills, and the remote MCP smoke passes **9/9**
-through both the backend URL and the frontend proxy.
+through the frontend proxy.
+
+The earlier Render deployment remains a fallback at
+https://once-skill-memory.onrender.com. It uses the same live data layer with
+server-side `once-local` keys, never in the repo or browser.
 
 ## Verified claims
 
@@ -47,7 +59,15 @@ through both the backend URL and the frontend proxy.
 - **AWS IAM**: the backend runs with a scoped identity (policy committed at
   `backend/scripts/once-runtime-iam-policy.json`); no root, no keys in the app.
 - **AWS STS**: identity verification in the smoke test.
-- Infrastructure is created idempotently by `backend/scripts/provision_aws.py`.
+- **AWS App Runner**: runs the public frontend and backend containers with
+  managed HTTPS and health checks.
+- **Amazon ECR**: stores the `linux/amd64` images that App Runner pulls.
+- **AWS Secrets Manager**: stores the OpenRouter key and injects it into the
+  backend as a runtime secret.
+- **Amazon CloudWatch Logs**: App Runner service logs for both containers.
+- Infrastructure is created idempotently by `backend/scripts/provision_aws.py`
+  for the data layer; the App Runner resources are documented in
+  [DEPLOYMENT.md](DEPLOYMENT.md).
 
 The browser never receives AWS credentials. It calls the Next.js same-origin
 rewrites (`/api`, `/health`, `/mcp`); the Next.js server and FastAPI process

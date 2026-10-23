@@ -3,8 +3,10 @@
 **Track:** Alexa+ (simulated-experience path with a self-hosted MCP server)
 **Mini challenge:** AWS Builder
 **Repo:** https://github.com/khushi-infinity/once
-**Live demo:** https://once-skill-memory.onrender.com
-**Public MCP endpoint:** https://once-skill-memory-api.onrender.com/mcp
+**Live demo (AWS App Runner):** https://nrsvfngagk.us-east-1.awsapprunner.com
+**Public MCP endpoint:** https://nrsvfngagk.us-east-1.awsapprunner.com/mcp
+**Backend health:** https://m7ypexbma7.us-east-1.awsapprunner.com/health
+**Fallback demo:** https://once-skill-memory.onrender.com
 **License:** MIT
 **Demo video:** add the public YouTube/Vimeo URL before submitting
 
@@ -78,8 +80,12 @@ handshake, the tools, the storage, and the answers.
 | --- | --- | --- |
 | **Amazon DynamoDB** | `ONCE_Skills`, `ONCE_Sessions`, `ONCE_Grants`, skills, learner progress, share grants; on-demand tables + GSIs; queries only, no scans | `scripts/smoke_live.py`, live pytest |
 | **Amazon S3** | Private evidence bucket for consented teaching artifacts; Public Access Block on all four switches, SSE-S3, no bucket policy | `s3_private_roundtrip` + public-read denial check |
-| **AWS IAM** | Backend runs as the least-privilege `once-local` identity; policy committed at `backend/scripts/once-runtime-iam-policy.json` | `sts:GetCallerIdentity` smoke check |
+| **AWS IAM** | The running backend uses `once-apprunner-backend-instance`, scoped to the three tables, the evidence bucket, and one Secrets Manager secret; policy committed at `backend/scripts/once-runtime-iam-policy.json` | `sts:GetCallerIdentity` smoke check, live data reads/writes |
 | **AWS STS** | Identity verification in the live smoke test | `aws_identity` check |
+| **Amazon ECR** | Stores the `linux/amd64` backend and frontend images | `describe-images` and running App Runner services |
+| **AWS App Runner** | Serves both public containers with managed HTTPS URLs and health checks | `https://nrsvfngagk.us-east-1.awsapprunner.com`, `https://m7ypexbma7.us-east-1.awsapprunner.com` |
+| **AWS Secrets Manager** | Stores the OpenRouter key; injected as an App Runner runtime secret | App Runner service configuration; no key in either image |
+| **Amazon CloudWatch Logs** | App Runner service logs for the deployed containers | `/aws/apprunner/once-backend/...` and `/aws/apprunner/once-frontend/...` |
 
 Reproduce:
 
@@ -97,6 +103,19 @@ APP_MODE=live AWS_PROFILE=once-local uv run pytest -q
 
 The frontend never receives AWS credentials. All AWS calls happen server-side
 through the standard credential chain.
+
+The public AWS deployment is two App Runner services in `us-east-1`, built from
+ECR images. The backend instance role is `once-apprunner-backend-instance`; the
+frontend has no instance role. The OpenRouter key is a Secrets Manager runtime
+secret, not a plain environment variable. The remote MCP smoke passes **9/9**
+through the frontend proxy, and real text and vision calls were verified against
+the AWS backend.
+
+Bootstrap caveat: the App Runner, ECR, IAM, and Secrets Manager resources were
+created while signed in as the account root identity because that was the only
+identity with create permissions available at the deadline. The running
+services do not use root. A long-lived deployment should replace the bootstrap
+session with a scoped deployment role.
 
 ## Inference (explicit, not AWS AI)
 
@@ -123,9 +142,10 @@ developer's current Google AI Studio project lists both models but returns
 `403 PERMISSION_DENIED` for generation, so the demo does not claim Gemini is
 active. OpenRouter is the working cloud path until project access is granted.
 
-ONCE does **not** claim AWS AI usage. The AWS story is the verified data layer:
-DynamoDB, S3, and least-privilege IAM. The account-level model-access constraint
-that shaped this choice is documented with evidence in `FRICTION_LOG.md`.
+ONCE does **not** claim AWS AI usage. The AWS story is the verified data and
+deployment layer: DynamoDB, S3, App Runner, ECR, Secrets Manager, and
+least-privilege IAM. The account-level model-access constraint that shaped this
+choice is documented with evidence in `FRICTION_LOG.md`.
 
 ## Architecture
 
@@ -169,6 +189,7 @@ Key invariants:
 | Browser page acting as an actual MCP client | **Real** (`/alexa`), with visible JSON-RPC transcript |
 | DynamoDB skills, sessions, grants | **Real** (live mode) |
 | Private S3 evidence roundtrip | **Real** (live mode) |
+| AWS public deployment | **Real** App Runner services, ECR images, Secrets Manager secret |
 | Portable `SKILL.md` + manifest export | **Real**, generated from the stored record |
 | Native macOS window guide | **Real** SwiftUI menu bar app; real screenshot + real vision call |
 | Voice input / spoken replies | **Real browser Web Speech APIs**; no cloud voice service is claimed |
@@ -246,6 +267,7 @@ server-side and covered by tests.
 - FastAPI, Pydantic 2, Python 3.14
 - MCP Python SDK, Streamable HTTP transport (protocol `2025-11-25`)
 - Amazon DynamoDB, Amazon S3, AWS IAM (least-privilege runtime identity)
+- AWS App Runner, Amazon ECR, AWS Secrets Manager, Amazon CloudWatch Logs
 - OpenRouter (`google/gemini-3.8-flash`) as the active hosted inference path;
   Ollama (`qwen2.5-coder:7b` text, `qwen2.5vl:3b` vision) as the explicit local
   path and fallback
@@ -259,22 +281,24 @@ server-side and covered by tests.
   sharing with an audit trail.
 - Let teachers attach photo evidence to a packing item and verify it with a
   vision model, without letting the model write to storage.
-- Move the current Render demo to AWS using [DEPLOYMENT.md](DEPLOYMENT.md) for
-  an always-on instance role, while keeping the same explicit mock/live split.
+- Replace the root bootstrap session used to create the AWS resources with a
+  scoped deployment role, while keeping the same explicit mock/live split.
 - Add automatic installation of an exported `SKILL.md` into common agent skill
   directories, with a version diff so a family or team can review changes.
 
 ## Judge quickstart
 
-Fastest path: open https://once-skill-memory.onrender.com. The public demo is
-live, backed by DynamoDB, and calls OpenRouter for text and vision. Both Render
-services are on the free plan, so the first request after a pause may take a few
-seconds.
+Fastest path: open https://nrsvfngagk.us-east-1.awsapprunner.com. The public
+demo is live on AWS App Runner, backed by DynamoDB, and calls OpenRouter for
+text and vision. The backend health endpoint is
+https://m7ypexbma7.us-east-1.awsapprunner.com/health.
 
 The MCP endpoint is public at
-https://once-skill-memory-api.onrender.com/mcp. The same endpoint is also
-proxied through the web origin at
-https://once-skill-memory.onrender.com/mcp.
+https://nrsvfngagk.us-east-1.awsapprunner.com/mcp. It is the same App Runner
+frontend proxy used by `/alexa`.
+
+The Render fallback remains at https://once-skill-memory.onrender.com if the
+AWS services are paused after judging.
 
 Prerequisites for local run: Node 22+, [uv](https://docs.astral.sh/uv/), and
 either an OpenRouter key or Ollama if you want to exercise live teach
@@ -413,10 +437,17 @@ and an actionable suggestion.
 - The MCP server is mounted in the FastAPI process (a standalone process is
   also available for the independent smoke client). The Next.js rewrite proxies
   `/mcp` to it for same-origin browser calls.
-- The public demo runs on Render at https://once-skill-memory.onrender.com. The
-  free plan spins down after inactivity, so the first request after a pause is
-  slow. The backend still uses the live AWS data layer; the Render environment
-  holds the least-privilege data keys server-side.
+- The primary public demo runs on AWS App Runner at
+  https://nrsvfngagk.us-east-1.awsapprunner.com. The backend uses the live AWS
+  data layer through a scoped instance role; the OpenRouter key is a Secrets
+  Manager runtime secret. App Runner does not scale to zero, so pause or delete
+  the services after judging if they are not needed.
+- The AWS resources were bootstrapped with the account root identity because
+  that was the only identity with create permissions available at the deadline.
+  The running services do not use root. Replace the bootstrap session with a
+  scoped deployment role for long-lived use.
+- The Render fallback at https://once-skill-memory.onrender.com still uses the
+  live AWS data layer with server-side data keys. It is not the primary URL.
 
 ## Submission checklist
 
@@ -427,8 +458,8 @@ and an actionable suggestion.
 - [ ] Mini challenge selected: **AWS Builder**.
 - [ ] Product feedback answers (use `FRICTION_LOG.md`).
 - [ ] If the form asks for a URL, use the live demo at
-      https://once-skill-memory.onrender.com and the public MCP endpoint at
-      https://once-skill-memory-api.onrender.com/mcp. Both are genuinely
+      https://nrsvfngagk.us-east-1.awsapprunner.com and the public MCP endpoint
+      at https://nrsvfngagk.us-east-1.awsapprunner.com/mcp. Both are genuinely
       working; the local run instructions remain in `README.md`.
 - [ ] Re-check that no unverified claim (Bedrock, AWS AI, Alexa+ SDK access)
       appears in the video or text.

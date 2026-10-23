@@ -180,7 +180,7 @@ and re-tested after ensuring a valid card was attached.
   single project-status endpoint would prevent clients from treating a
   successful model list as proof that generation works.
 
-## 9. The AWS deployment account is read-only for the services we needed (BLOCKER)
+## 9. The AWS deployment account is read-only for the services we needed (RESOLVED VIA SECOND ACCOUNT)
 
 - **Date:** 2026-10-23
 - **Task attempted:** deploy the public demo to AWS with the existing
@@ -192,14 +192,18 @@ and re-tested after ensuring a valid card was attached.
   account look usable until the first create call. The data layer lives in a
   different account (`552952091217`) where the only available identity,
   `once-local`, is intentionally data-only and cannot create compute.
-- **Impact:** an AWS-hosted public demo was not possible without a new
-  least-privilege deployment role or account-level SCP change that we could not
-  self-serve before the deadline.
-- **Worked around?** Yes: the public demo runs on Render, with the backend still
-  using the real DynamoDB/S3 data layer and the same `once-local` identity. The
-  frontend and backend are separate Render services, and the MCP smoke passes
-  9/9 through both public URLs. The AWS deployment paths remain documented in
-  `DEPLOYMENT.md` for an account with the required create permissions.
+- **Impact:** an AWS-hosted public demo was not possible from account
+  `881893827573` without an SCP change that we could not self-serve.
+- **Worked around?** Yes, in two stages. The first public demo ran on Render,
+  with the backend still using the real DynamoDB/S3 data layer and the same
+  `once-local` identity. Later on 2026-10-23 we signed in to account
+  `552952091217` with a deploy-capable root session, created the App Runner,
+  ECR, IAM, and Secrets Manager resources there, and moved the primary demo to
+  AWS. The running backend uses the scoped
+  `once-apprunner-backend-instance` role, not root. The MCP smoke passes 9/9
+  through the AWS frontend proxy, and real text and vision calls were verified.
+  The root bootstrap session should be replaced with a scoped deployment role
+  for long-lived use. The SCP block on `881893827573` remains.
 - **Suggestion to AWS/hackathon organizers:** publish the sandbox SCP allowlist
   up front, and provide a deploy role that can create the services the
   challenge asks for (compute, registry, database, storage) without opening
@@ -219,11 +223,48 @@ and re-tested after ensuring a valid card was attached.
   MCP server was healthy and the HTTP API worked.
 - **Worked around?** Yes: `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` now
   configure the transport security allowlist, and the deployed env includes the
-  Render hostnames. The smoke test passes through both the backend URL and the
-  frontend proxy.
+  Render and App Runner hostnames. The smoke test passes through both the
+  backend URL and the frontend proxy.
 - **Suggestion to the MCP SDK/docs:** show the deployed-host allowlist in the
   Streamable HTTP quickstart, not only the localhost example. The `421` is
   correct behavior, but the error is easy to misread as a proxy or TLS problem.
+
+## 11. App Runner `CREATE_FAILED` gives no reason when the health check is a proxy
+
+- **Date:** 2026-10-23
+- **Task attempted:** create the frontend App Runner service with health check
+  `/health`, matching the backend and the docs.
+- **What happened:** the service sat in `OPERATION_IN_PROGRESS` for about eight
+  minutes, then became `CREATE_FAILED`. `list-operations` showed `FAILED` with
+  no reason, and the service log group had no application events because the
+  container never became healthy. `/health` on the Next.js container is a
+  rewrite to the backend; the backend was being redeployed at the same time, so
+  the health check returned 500.
+- **Impact:** about eight minutes of waiting plus a second eight-minute create
+  cycle, with no actionable error from the API.
+- **Worked around?** Yes: use the static `/` route for the frontend health
+  check, and keep `/health` for the backend. The frontend then passed its
+  health check and reached `RUNNING`.
+- **Suggestion to AWS:** surface the failed health-check response (status code
+  and path) on `DescribeService` or `ListOperations`, and do not require
+  CloudWatch log access to learn why a service create failed.
+
+## 12. macOS mDNSResponder kept a negative cache for new App Runner hostnames
+
+- **Date:** 2026-10-23
+- **Task attempted:** open a freshly created App Runner URL in the local
+  browser and with `curl`/Python.
+- **What happened:** `dig` and `host` resolved the new
+  `<id>.us-east-1.awsapprunner.com` name immediately, but `curl`,
+  `socket.getaddrinfo`, and `dns-sd` returned `Unknown host` / `No Such Record`
+  for several minutes. The mDNSResponder negative cache had recorded the name
+  before App Runner published its DNS record.
+- **Impact:** the first browser and smoke checks looked like a broken deployment
+  even though the service was healthy. `curl --resolve` and a patched
+  `getaddrinfo` proved the app was fine.
+- **Worked around?** Yes: waited for the negative-cache TTL to expire. A
+  `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder` also clears
+  it immediately. No application change was needed.
 
 ---
 

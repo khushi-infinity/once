@@ -15,13 +15,20 @@ front of you.
 ONCE is not a chatbot wrapper: every answer about "what did I teach you" is
 grounded in stored skill records, never invented by a language model.
 
-**Live demo:** https://once-skill-memory.onrender.com
-**Public MCP endpoint:** https://once-skill-memory-api.onrender.com/mcp
+**Live demo (AWS):** https://nrsvfngagk.us-east-1.awsapprunner.com
+**Public MCP endpoint (AWS):** https://nrsvfngagk.us-east-1.awsapprunner.com/mcp
+**Backend health:** https://m7ypexbma7.us-east-1.awsapprunner.com/health
 
-The public demo is a real Render deployment backed by the live DynamoDB and S3
-data layer. Both services are on the free plan, so the first request after a
-pause can take a few seconds. The MCP smoke test passes 9/9 against both the
-backend URL and the frontend proxy.
+The primary public demo is a real AWS App Runner deployment in `us-east-1`:
+a Next.js frontend and a FastAPI/MCP backend, both built from this repo and
+running on AWS-managed compute. Runtime data is the live DynamoDB and private
+S3 layer, reached through a scoped App Runner instance role. The OpenRouter key
+is injected from Secrets Manager, not baked into either image. The earlier
+Render deployment remains available as a fallback:
+https://once-skill-memory.onrender.com.
+
+The MCP smoke test passes 9/9 through the AWS frontend proxy, and real
+OpenRouter text and vision calls have been verified against the AWS backend.
 
 ## What ships
 
@@ -165,20 +172,26 @@ cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_l
 
 ### Deploy
 
-The current public demo runs on Render as two services:
+The current public demo runs on AWS App Runner as two services:
+
+- `https://nrsvfngagk.us-east-1.awsapprunner.com` (Next.js frontend)
+- `https://m7ypexbma7.us-east-1.awsapprunner.com` (FastAPI plus MCP)
+
+Both images are built from this repo for `linux/amd64`, stored in ECR, and
+deployed with App Runner. The backend uses the live DynamoDB tables and private
+S3 bucket through the `once-apprunner-backend-instance` role. The OpenRouter key
+is a Secrets Manager runtime secret. No AWS or inference credentials reach the
+browser or the frontend image.
+
+The earlier Render deployment remains available as a fallback:
 
 - `https://once-skill-memory.onrender.com` (Next.js frontend)
 - `https://once-skill-memory-api.onrender.com` (FastAPI plus MCP)
 
-Both build from this repo on `main`. The backend uses the same live DynamoDB,
-S3, and least-privilege data identity as local live mode. The AWS keys are
-server-side environment variables in Render, never in the repo or the browser.
-
 Both services also have production Dockerfiles and a single-host Compose file.
-The AWS path is one EC2 instance with an instance role, `backend/.env`, and
-Caddy TLS. Managed alternatives are App Runner plus Amplify, or ECS Fargate plus
-ALB. See [DEPLOYMENT.md](DEPLOYMENT.md) for the env matrix, commands, and the
-public-demo access warning.
+The AWS alternatives are App Runner, one EC2 instance with Caddy TLS, or ECS
+Fargate plus ALB. See [DEPLOYMENT.md](DEPLOYMENT.md) for the env matrix,
+commands, and the public-demo access warning.
 
 ```bash
 DOMAIN=demo.example.com docker compose --profile https up -d --build
@@ -228,7 +241,8 @@ skills, so a judge can run `/alexa` end-to-end without AWS credentials.
 | Shareable desktop guide records with typed `desktop_workflow` skills | |
 | `/alexa` real browser MCP client with voice input, spoken replies, and visible JSON-RPC traffic | |
 | Live AWS: 3 DynamoDB tables, private S3, scoped IAM; `smoke_live` **4/4** | |
-| Public Render demo with live DynamoDB, OpenRouter, and MCP 9/9 through both URLs | Record and submit the demo video |
+| Public AWS App Runner demo with live DynamoDB, OpenRouter, and MCP 9/9 through the frontend proxy | Record and submit the demo video |
+| Public Render fallback with the same live data layer | |
 | Backend **25 live tests** / 24 mock tests passing; frontend lint + production build clean | |
 
 The public URL is a genuine working deployment, not a static mock. It reports
@@ -260,9 +274,9 @@ and vision.
 
 Inference is explicit local/hosted OpenAI-compatible; mock mode is a labeled
 deterministic parser. ONCE never claims AWS AI usage. The AWS Builder story is
-the verified data layer (DynamoDB, S3, least-privilege IAM). The account-level
-model-access constraint that shaped this choice is documented in
-[FRICTION_LOG.md](FRICTION_LOG.md).
+the verified data and deployment layer (DynamoDB, S3, App Runner, ECR, Secrets
+Manager, least-privilege IAM). The account-level model-access constraint that
+shaped this choice is documented in [FRICTION_LOG.md](FRICTION_LOG.md).
 
 ## License
 

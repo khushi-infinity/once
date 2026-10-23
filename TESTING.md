@@ -1,7 +1,7 @@
 # Testing ONCE
 
-Everything below was run on 2026-10-22. The public Render deployment was
-verified on 2026-10-23. Commands are copy-pasteable.
+Everything below was run on 2026-10-22. The public AWS App Runner deployment
+was verified on 2026-10-23. Commands are copy-pasteable.
 
 ## 1. Backend static + unit/integration tests
 
@@ -182,39 +182,35 @@ task role, not static AWS keys. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 9. Public deployment
 
-The public demo is two Render services:
+The primary public demo is two AWS App Runner services in `us-east-1`:
 
-- App: `https://once-skill-memory.onrender.com`
-- API and MCP: `https://once-skill-memory-api.onrender.com`
+- App: `https://nrsvfngagk.us-east-1.awsapprunner.com`
+- API and MCP: `https://m7ypexbma7.us-east-1.awsapprunner.com`
 
 Verify the deployed stack:
 
 ```bash
-curl -fsS https://once-skill-memory.onrender.com/health
-curl -fsS "https://once-skill-memory.onrender.com/api/skills?reader_id=demo-teacher"
-curl -fsS "https://once-skill-memory.onrender.com/api/skills/b7291dc416cf/agent-skill?reader_id=demo-teacher" | head
+curl -fsS https://nrsvfngagk.us-east-1.awsapprunner.com/health
+curl -fsS "https://nrsvfngagk.us-east-1.awsapprunner.com/api/skills?reader_id=demo-teacher"
+curl -fsS "https://nrsvfngagk.us-east-1.awsapprunner.com/api/skills/b7291dc416cf/agent-skill?reader_id=demo-teacher" | head
 ```
 
 Expected: `/health` reports `app_mode: live` and provider `openrouter`; the
 skills response contains the three stored demo skills; the agent export returns
 a real `SKILL.md`.
 
-Remote MCP smoke through both the backend URL and the frontend proxy:
+Remote MCP smoke through the frontend proxy:
 
 ```bash
 cd backend
-ONCE_MCP_URL=https://once-skill-memory-api.onrender.com/mcp \
-  ONCE_API_URL=https://once-skill-memory-api.onrender.com \
-  uv run python scripts/mcp_smoke.py
-
-ONCE_MCP_URL=https://once-skill-memory.onrender.com/mcp \
-  ONCE_API_URL=https://once-skill-memory.onrender.com \
+ONCE_MCP_URL=https://nrsvfngagk.us-east-1.awsapprunner.com/mcp \
+  ONCE_API_URL=https://nrsvfngagk.us-east-1.awsapprunner.com \
   uv run python scripts/mcp_smoke.py
 ```
 
-Expected: `9/9` checks pass for both URLs. The backend allowlist is set with
-`MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS`; an empty or mismatched allowlist
-returns `421 Invalid Host header`.
+Expected: `9/9` checks pass. The backend allowlist is set with
+`MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` for both App Runner hostnames; an
+empty or mismatched allowlist returns `421 Invalid Host header`.
 
 Public browser check (Playwright, headless Chromium, 2026-10-23):
 
@@ -223,14 +219,12 @@ Public browser check (Playwright, headless Chromium, 2026-10-23):
   Desk**.
 - `/recall` loads the grounded-recall screen.
 - `/alexa` shows **MCP CONNECTED**, protocol **2025-11-25** and **9 tools**.
-  Clicking *"What am I missing for the conference?"* produced a real
-  `once_recall_missing` result in 676 ms, **Show MCP traffic (1)**, and the
-  not-confirmed explanation. No browser console errors.
+  No browser console errors.
 
 Real hosted inference:
 
 ```bash
-curl -fsS -X POST https://once-skill-memory.onrender.com/api/teach/extract \
+curl -fsS -X POST https://nrsvfngagk.us-east-1.awsapprunner.com/api/teach/extract \
   -H 'content-type: application/json' \
   -d '{"transcript":"I pack a towel, a water bottle and a lock for the gym.","skill_type":"packing"}'
 ```
@@ -242,20 +236,21 @@ Expected: a structured draft with `engine.provider: openrouter` and
 Public vision check:
 
 ```bash
-curl -fsS -X POST https://once-skill-memory.onrender.com/api/window/guide \
+curl -fsS -X POST https://nrsvfngagk.us-east-1.awsapprunner.com/api/window/guide \
   -F 'file=@/path/to/window.png;type=image/png' \
   -F 'question=Where is the Export button?' \
   -F 'app_name=Files'
 ```
 
-Verified result: the answer located the blue Export button in the lower right,
-confidence `high`, engine `openrouter / google/gemini-3.8-flash`. The same
-image through `/api/teach/extract-image` returned a draft with items and steps
-plus two honest ambiguities.
+Verified result: the answer located the blue Export button above the table,
+confidence `high`, engine `openrouter / google/gemini-3.8-flash`.
 
-Render free services spin down after inactivity. Wake the app before recording
-the demo. The backend uses the least-privilege data identity through
-server-side Render environment variables; rotate those keys after the demo.
+The earlier Render deployment remains a fallback at
+`https://once-skill-memory.onrender.com`. Its free services spin down after
+inactivity. The AWS deployment does not scale to zero; pause or delete the App
+Runner services after judging if they are not needed. The backend uses the
+scoped App Runner instance role; the OpenRouter key is a Secrets Manager runtime
+secret. Rotate the key after the demo.
 
 ## 10. Manual browser flow (2-3 minutes)
 

@@ -10,18 +10,21 @@ evidence; do not bury it.
   and model `google/gemini-3.8-flash`, or `ollama list` shows
   `qwen2.5-coder:7b` and `qwen2.5vl:3b` if you deliberately switch to local.
   The curated demo skills already exist in DynamoDB.
-- Public demo: https://once-skill-memory.onrender.com (wake it first; the free
-  plan spins down after inactivity). Public MCP:
-  https://once-skill-memory-api.onrender.com/mcp
-- For the Mac helper, run the local backend: `cd backend && APP_MODE=live
-  AWS_PROFILE=once-local uv run uvicorn app.main:app --port 8000` (this process
-  also serves MCP at `/mcp`; no second server needed). The Mac helper and the
-  public web app read and write the same DynamoDB tables.
+- Public AWS demo: https://nrsvfngagk.us-east-1.awsapprunner.com. Public MCP:
+  https://nrsvfngagk.us-east-1.awsapprunner.com/mcp. Backend health:
+  https://m7ypexbma7.us-east-1.awsapprunner.com/health.
+- For the Mac helper, point it at the AWS backend:
+  `ONCE_API_URL=https://m7ypexbma7.us-east-1.awsapprunner.com
+  ONCE_WEB_URL=https://nrsvfngagk.us-east-1.awsapprunner.com
+  open macos/ONCEWindow.app`. The helper and the public web app read and write
+  the same DynamoDB tables. A local backend also works if you prefer.
 - Frontend: use the public URL, or `cd frontend && npm run dev` →
   http://localhost:3000
 - Or one command: `./scripts/dev.sh` (live) / `APP_MODE=mock ./scripts/dev.sh` (offline)
 - `/health` shows `app_mode: live`, provider `openrouter`, model `google/gemini-3.8-flash`.
 - `/alexa` shows **MCP connected**, protocol **2025-11-25**, **9 tools**.
+- The Render fallback is https://once-skill-memory.onrender.com if the AWS
+  services are paused; do not mix URLs in one recording.
 - Build the native helper with `./scripts/build-macos.sh --open`; grant Screen
   Recording on first use and test one question before recording.
 - Open `/skills` in a second tab if you want to show the shared-skills list
