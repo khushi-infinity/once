@@ -6,21 +6,18 @@ owner for list-by-owner without full-table reads.
 from threading import Lock
 from typing import Any
 
-import boto3
 from boto3.dynamodb.conditions import Key
 
 from app.config import get_settings
 from app.models.core import LearnerSession, ShareGrant, Skill, utcnow
+from app.services.aws_session import aws_session
 
 Lockable = Lock
 
 
 def _resource():
     settings = get_settings()
-    session = (
-        boto3.Session(profile_name=settings.aws_profile) if settings.aws_profile else boto3.Session()
-    )
-    return session.resource("dynamodb", region_name=settings.aws_region)
+    return aws_session().resource("dynamodb", region_name=settings.aws_region)
 
 
 def _to_plain(value: Any) -> Any:
