@@ -49,16 +49,46 @@ export function Avatar({ className = "" }: { className?: string }) {
   );
 }
 
-export function Orb({ small = false }: { small?: boolean }) {
-  return (
-    <div className={small ? "orb-stage min-h-[120px]" : "orb-stage"}>
-      <div className={small ? "orb-glow scale-75" : "orb-glow"} />
+export type OrbState = "idle" | "listening" | "speaking";
+
+export function Orb({
+  small = false,
+  state = "idle",
+  onActivate,
+  ariaLabel,
+}: {
+  small?: boolean;
+  state?: OrbState;
+  onActivate?: () => void;
+  ariaLabel?: string;
+}) {
+  const interactive = typeof onActivate === "function";
+  const pulseClass =
+    state === "listening" ? "orb-breathe-fast" : state === "speaking" ? "orb-breathe-slow" : "";
+  const glowClass = state === "idle" ? "" : "orb-glow-live";
+  const body = (
+    <>
+      <div className={`orb-glow${small ? " scale-75" : ""}${glowClass ? ` ${glowClass}` : ""}`} />
       <span className="orb-spark left-[16%] top-[24%]" />
       <span className="orb-spark right-[14%] top-[34%] h-1.5 w-1.5" />
       <span className="orb-spark bottom-[20%] right-[22%] h-1 w-1" />
-      <div className={small ? "orb scale-[0.62]" : "orb"}>
+      <div className={`orb${small ? " scale-[0.62]" : ""}${pulseClass ? ` ${pulseClass}` : ""}`}>
         <span className="orb-smile" />
       </div>
-    </div>
+    </>
+  );
+  if (!interactive) {
+    return <div className={small ? "orb-stage min-h-[120px]" : "orb-stage"}>{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onActivate}
+      aria-pressed={state !== "idle"}
+      aria-label={ariaLabel ?? "Talk to ONCE"}
+      className={`orb-stage${small ? " min-h-[120px]" : ""} orb-interactive`}
+    >
+      {body}
+    </button>
   );
 }

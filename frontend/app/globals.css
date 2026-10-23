@@ -161,6 +161,45 @@ body {
   50% { transform: translateY(-7px); }
 }
 
+/* Interactive orb states. When ONCE is listening she breathes fast; while she
+   is speaking the breathing is slower and deeper, like she is vocalising. The
+   keyframes own the whole transform while active, so they also carry the
+   original float bob. */
+.orb-interactive {
+  cursor: pointer;
+}
+
+.orb-interactive .orb:hover {
+  filter: brightness(1.07);
+}
+
+.orb-interactive:focus-visible {
+  outline: 2px solid rgba(47, 107, 255, 0.65);
+  outline-offset: 6px;
+  border-radius: 999px;
+}
+
+.orb-glow-live {
+  animation: orb-glow-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes orb-glow-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+
+.orb-breathe-fast {
+  animation: orb-breathe 1.05s ease-in-out infinite;
+}
+
+.orb-breathe-slow {
+  animation: orb-breathe 2s ease-in-out infinite;
+}
+
+@keyframes orb-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-7px) scale(1.12); }
+}
 /* ---------- voice waveform ---------- */
 .waveform {
   display: flex;

@@ -92,6 +92,7 @@ export default function TeachPage() {
   const [busy, setBusy] = useState<"extract" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<Skill | null>(null);
+  const [speaking, setSpeaking] = useState(false);
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const previewRef = useRef<string | null>(null);
   const composerRef = useRef<HTMLElement | null>(null);
@@ -171,6 +172,30 @@ export default function TeachPage() {
       () => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
       30
     );
+  }
+
+  // Speak a short answer out loud. Used for the orb voice loop: click the orb,
+  // she listens; when the draft or save completes she reads the outcome. The
+  // speaking state drives the orb's breathing animation, and the safety timer
+  // unblocks the pulse if the browser never fires the utterance end event.
+  function talkBack(text: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const clean = text.replace(/[“”"`*#]/g, "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    const finish = () => setSpeaking(false);
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = "en-US";
+      utterance.rate = 1.02;
+      utterance.onstart = () => setSpeaking(true);
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      window.speechSynthesis.speak(utterance);
+      window.setTimeout(finish, Math.min(30_000, 1_200 + clean.length * 75) + 500);
+    } catch {
+      finish();
+    }
   }
 
   function toggleVoice() {
@@ -280,6 +305,11 @@ export default function TeachPage() {
       }
       setDraft(next);
       setMode(activeMode);
+      talkBack(
+        `Here's your draft: ${next.title}. ${(next.items ?? []).length} item${
+          (next.items ?? []).length === 1 ? "" : "s"
+        }${(next.steps ?? []).length ? `, ${(next.steps ?? []).length} steps` : ""}. Review and confirm it below.`
+      );
     } catch (e) {
       setError(`Extraction failed: ${(e as Error).message}`);
     } finally {
@@ -350,6 +380,9 @@ export default function TeachPage() {
         30_000 // saving is a local write; surface failures quickly
       );
       setSaved(skill);
+      talkBack(
+        `Saved ${skill.title}. ${skill.items.length} items are in your library. Ask me what you are missing anytime.`
+      );
       setDraft(null);
       setText("");
       setInterim("");
@@ -423,7 +456,20 @@ export default function TeachPage() {
           </div>
         </div>
 
-        <Orb />
+        <Orb
+          state={listening ? "listening" : speaking ? "speaking" : "idle"}
+          onActivate={() => {
+            if (listening) {
+              toggleVoice();
+              return;
+            }
+            startTalk();
+          }}
+          ariaLabel={listening ? "Stop listening" : "Tap to talk to ONCE"}
+        />
+        <p aria-hidden className="mt-1 text-center text-[10px] font-extrabold uppercase tracking-[0.14em] text-accent/80">
+          {listening ? "Listening — tap again to stop" : speaking ? "Speaking…" : "Tap me to talk"}
+        </p>
 
         <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-relaxed text-muted">
           Teach ONCE once. It remembers the method and helps the next person do it.

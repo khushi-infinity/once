@@ -143,7 +143,12 @@ export default function RecallPage() {
             </p>
           </div>
           <div className="hidden sm:block">
-            <Orb small />
+            <Orb
+              small
+              state={listening ? "listening" : "idle"}
+              onActivate={dictate}
+              ariaLabel={listening ? "Listening" : "Ask by voice"}
+            />
           </div>
         </div>
       </section>
