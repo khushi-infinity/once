@@ -128,7 +128,7 @@ The macOS window guide bypasses the draft screen deliberately: `/api/window/guid
 | `/` (Teach) | Text, voice (browser `SpeechRecognition`), and photo teaching → editable draft → confirm → save. Drafts taught through `/alexa` are handed off via `sessionStorage` so **Review and save the draft** opens the real draft, not a dead end. Save is validated client-side (empty item/step rows are caught with a named error before hitting the API) and every call carries a hard timeout so the UI can never strand on "Saving…". |
 | `/recall` | Grounded missing-item checklist with "have" ticking (per-request, not persisted) and voice entry |
 | `/skills`, `/skills/[id]`, `/skills/new` | "My memories & skills", detail/detail-edit, sharing/revocation, agent-skill export buttons |
-| `/alexa` | Real browser MCP client (`lib/mcp.ts`): full handshake, tools list, tool call, spoken replies, JSON-RPC traffic drawer, teacher/learner demo profile |
+| `/alexa` | Real browser MCP client (`lib/mcp.ts`): full handshake, tools list, tool call, spoken replies (with a spoken "give me a second" acknowledgment for voice asks and a live interim-transcript bubble), JSON-RPC traffic drawer, teacher/learner demo profile. **Hands-free mode** keeps the loop going like a real assistant: after every spoken answer ONCE waits for speech to end and listens again — the microphone only opens after she stops talking, so she never transcribes her own voice. Mic failures (permission denied, no device, blocked capture) surface as readable errors instead of silently doing nothing. |
 | `next.config.ts` | Same-origin rewrites for `/api/*`, `/health`, `/mcp` → `BACKEND_URL`/`MCP_URL` |
 
 ### macOS — SwiftUI (`macos/OnceWindow`)
@@ -222,6 +222,16 @@ cd backend && APP_MODE=live AWS_PROFILE=once-local uv run python scripts/smoke_l
 ```
 
 The AWS Builder story is the **verified data and deployment layer** (DynamoDB, S3, App Runner, ECR, Secrets Manager, least-privilege IAM). ONCE never claims AWS AI usage.
+
+## ONCE Window Guide (macOS helper)
+
+`macos/OnceWindow` is a native menu-bar app (eye icon) for the Apple client pillar. Full details live in [macos/README.md](macos/README.md); the short walkthrough:
+
+- **Open it:** `./scripts/build-macos.sh --open` — no Dock icon; it lives in the menu bar. First use asks for Screen Recording, Microphone and Speech Recognition permission.
+- **Use it:** open any app window, type or speak a question ("Where is Export?"), press **Look at this window**. It captures exactly that one visible window, POSTs it to `/api/window/guide`, and answers **spoken aloud** plus in text, with steps, a confidence label, and real vision-engine metadata.
+- **Keep it:** **Save as skill** writes a real `desktop_workflow` skill to the same ONCE store as everything else (DynamoDB in live mode). **Save SKILL.md for AI agents** exports a portable Agent Skill folder. **Open in ONCE** jumps to the saved skill in the browser.
+- **Close it:** the panel closes on click-out or Esc like any menu bar window; to exit the helper entirely, focus its panel and press `⌘Q` (or `pkill -x OnceWindow` from a terminal).
+- **What is stored where:** the screenshot is written only to a macOS temp file that is deleted the moment the capture function returns, sent once to your backend, processed in memory, never persisted or logged. Speech is recognized on-device (`requiresOnDeviceRecognition`); only the transcript text is sent, audio is never sent or kept. The helper's only disk writes are the agent-skill folder you explicitly export: `~/Library/Application Support/ONCE/agent-skills/<skill-name>/SKILL.md` + `once-window-source.json` provenance. Answer text saved as a skill goes to the ONCE store, not to Apple or any third party.
 
 ## Testing and verification
 

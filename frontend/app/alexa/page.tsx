@@ -119,7 +119,10 @@ export default function AlexaPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState("");
+  const [speaking, setSpeaking] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
+  const [handsFree, setHandsFree] = useState(false);
   const [reader, setReader] = useState("demo-teacher");
   const [traffic, setTraffic] = useState<McpCall[]>([]);
   const [showTraffic, setShowTraffic] = useState(false);
@@ -128,25 +131,118 @@ export default function AlexaPage() {
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const listeningRef = useRef(false);
+  const handsFreeRef = useRef(false);
+
+  // Refs mirror the latest state for callbacks that outlive a render (the
+  // speech synthesizer and the auto-relisten loop read these).
+  handsFreeRef.current = handsFree;
+  listeningRef.current = listening;
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id">) => {
     setMessages((prev) => [...prev, { ...message, id: newId() }]);
   }, []);
 
-  const speak = useCallback(
-    (text: string) => {
-      if (!voiceOn || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-      const clean = text.replace(/[“”"`*#]/g, "").replace(/\s+/g, " ").trim();
-      if (!clean) return;
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = "en-US";
-      utterance.rate = 1.02;
-      utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
-    },
-    [voiceOn]
-  );
+  // Speak out loud and resolve when the words finish (or cannot). This is
+  // awaited in conversation (hands-free) mode so the microphone only opens
+  // after ONCE stops talking; otherwise she would transcribe her own voice.
+  const speak = useCallback((text: string): Promise<void> => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return Promise.resolve();
+    if (!voiceOn || document.hidden) return Promise.resolve(); // no background chatter
+    const clean = text.replace(/[“”"`*#]/g, "").replace(/\s+/g, " ").trim();
+    if (!clean) return Promise.resolve();
+    // Some browsers stop firing onend after a tab switch; this estimate is the
+    // safety net that still unblocks the hands-free loop.
+    const fallbackIn = Math.min(30_000, 1_200 + clean.length * 75);
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          setSpeaking(false);
+          resolve();
+        }
+      };
+      const guard = window.setTimeout(finish, fallbackIn);
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = "en-US";
+        utterance.rate = 1.02;
+        utterance.pitch = 1;
+        utterance.onstart = () => setSpeaking(true);
+        utterance.onend = () => {
+          window.clearTimeout(guard);
+          finish();
+        };
+        utterance.onerror = () => {
+          window.clearTimeout(guard);
+          finish();
+        };
+        setSpeaking(true);
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        window.clearTimeout(guard);
+        finish();
+      }
+    });
+  }, [voiceOn]);
+
+  // Create and start one recognition session. Used by the mic button and by
+  // the hands-free loop after ONCE finishes speaking.
+  const startListening = useCallback(() => {
+    if (listeningRef.current) return;
+    const w = window as unknown as {
+      SpeechRecognition?: RecognitionCtor;
+      webkitSpeechRecognition?: RecognitionCtor;
+    };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = "en-US";
+    rec.continuous = false; // one utterance per turn keeps the loop tidy
+    rec.interimResults = true;
+    rec.onresult = (event) => {
+      let finalText = "";
+      let interimText = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        if (result.isFinal) finalText += result[0].transcript;
+        else interimText += result[0].transcript;
+      }
+      if (interimText) setInterim(interimText);
+      if (finalText.trim()) {
+        setInterim("");
+        void ask(finalText.trim(), true);
+      }
+    };
+    rec.onerror = (event) => {
+      setListening(false);
+      setInterim("");
+      // A silent give-up feels like ONCE ignoring you; show why. Common
+      // cases: no microphone device, mic permission denied for this origin,
+      // or the browser blocks capture over plain http.
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setHandsFree(false);
+        setError(
+          "I could not open the microphone. Allow mic access for this site in the browser bar, then tap Hands-free again."
+        );
+      } else if (event.error === "audio-capture") {
+        setHandsFree(false);
+        setError("No microphone was found on this device. You can type instead.");
+      } else if (event.error !== "no-speech" && event.error !== "aborted") {
+        setError(`Microphone error: ${event.error}. You can type instead.`);
+      }
+    };
+    rec.onend = () => {
+      setListening(false);
+      setInterim("");
+    };
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const connect = useCallback(async () => {
     setStatus("connecting");
@@ -343,21 +439,27 @@ export default function AlexaPage() {
     };
   }
 
-  async function ask(raw?: string) {
+  async function ask(raw?: string, viaVoice = false) {
     const text = (raw ?? input).trim();
     if (!text || busy || status !== "connected") return;
     setInput("");
     setError(null);
     addMessage({ role: "user", text });
     setBusy(true);
+    // What Alexa does while waiting: a short spoken acknowledgment so you
+    // know she heard you and is checking her real memory.
+    if (viaVoice) void speak("Give me a second, let me check your stored skills.");
     try {
       const reply = await route(text);
       addMessage({ role: "once", ...reply });
-      speak(reply.text);
+      await speak(reply.text); // wait so hands-free never listens to itself
+      // Conversation loop: ask again, like talking to a real assistant.
+      if (handsFreeRef.current && viaVoice) startListening();
     } catch (e) {
       const message = e instanceof Error ? e.message : "The MCP call failed.";
       setError(message);
       addMessage({ role: "once", text: message, error: true });
+      void speak(message);
     } finally {
       setBusy(false);
       inputRef.current?.focus();
@@ -370,6 +472,7 @@ export default function AlexaPage() {
       setListening(false);
       return;
     }
+    setError(null);
     const w = window as unknown as {
       SpeechRecognition?: RecognitionCtor;
       webkitSpeechRecognition?: RecognitionCtor;
@@ -381,34 +484,8 @@ export default function AlexaPage() {
       );
       return;
     }
-    const rec = new Ctor();
-    rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const result = event.results[i];
-        if (result.isFinal) finalText += result[0].transcript;
-        else interimText += result[0].transcript;
-      }
-      if (interimText) setInput(interimText);
-      if (finalText.trim()) {
-        setInput("");
-        void ask(finalText.trim());
-      }
-    };
-    rec.onerror = (event) => {
-      setError(`Microphone error: ${event.error}. You can type instead.`);
-      setListening(false);
-    };
-    rec.onend = () => setListening(false);
-    recognitionRef.current = rec;
     window.speechSynthesis?.cancel();
-    rec.start();
-    setListening(true);
-    setError(null);
+    startListening();
   }
 
   const connected = status === "connected";
@@ -518,6 +595,25 @@ export default function AlexaPage() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                const next = !handsFree;
+                setHandsFree(next);
+                // Turning hands-free on opens the microphone right away so
+                // you can start talking immediately.
+                if (next && connected && !busy && !listening) startListening();
+              }}
+              aria-pressed={handsFree}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-extrabold transition ${
+                handsFree
+                  ? "border-accent bg-accent text-white"
+                  : "border-border bg-surface text-muted"
+              }`}
+            >
+              <SparkleIcon className="size-3.5" />
+              Hands-free
+            </button>
+            <button
+              type="button"
               onClick={() => void connect()}
               className="rounded-full border border-border bg-surface px-3 py-1.5 text-[10px] font-extrabold text-muted transition hover:border-accent hover:text-accent"
             >
@@ -615,7 +711,21 @@ export default function AlexaPage() {
                       <span className="size-1.5 animate-bounce rounded-full bg-accent [animation-delay:-0.1s]" />
                       <span className="size-1.5 animate-bounce rounded-full bg-accent" />
                     </span>
-                    Calling MCP…
+                    {speaking
+                      ? "Speaking…"
+                      : listening
+                        ? "Listening…"
+                        : "Calling MCP…"}
+                  </div>
+                </div>
+              )}
+
+              {/* Live interim transcript from the microphone, shown as a
+                  provisional bubble like a real voice assistant. */}
+              {listening && !busy && (
+                <div className="flex justify-end">
+                  <div className="max-w-[92%] rounded-[22px] rounded-br-md bg-accent/15 px-4 py-3 text-sm font-semibold text-accent sm:max-w-[82%]">
+                    {interim || "Listening…"}
                   </div>
                 </div>
               )}
@@ -680,7 +790,11 @@ export default function AlexaPage() {
               <p className="mt-2 text-center text-[10px] font-bold text-muted">
                 {listening
                   ? "Listening, speak naturally, then I'll send the real MCP call."
-                  : "Every answer is grounded in stored skills. If nothing matches, ONCE says so."}
+                  : speaking
+                    ? "ONCE is speaking out loud. Tap the mic to finish her early."
+                    : handsFree
+                      ? "Hands-free is on: after every spoken answer she listens again. Say something."
+                      : "Every answer is spoken and grounded in stored skills. If nothing matches, ONCE says so."}
               </p>
             </form>
           </>
