@@ -216,6 +216,17 @@ Expected: `9/9` checks pass for both URLs. The backend allowlist is set with
 `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS`; an empty or mismatched allowlist
 returns `421 Invalid Host header`.
 
+Public browser check (Playwright, headless Chromium, 2026-10-23):
+
+- `/` loads with the voice-first home and live mode badge.
+- `/skills` renders **My Event Bag**, **Make Tea (My Way)** and **Clean My
+  Desk**.
+- `/recall` loads the grounded-recall screen.
+- `/alexa` shows **MCP CONNECTED**, protocol **2025-11-25** and **9 tools**.
+  Clicking *"What am I missing for the conference?"* produced a real
+  `once_recall_missing` result in 676 ms, **Show MCP traffic (1)**, and the
+  not-confirmed explanation. No browser console errors.
+
 Real hosted inference:
 
 ```bash
