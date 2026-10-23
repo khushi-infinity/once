@@ -104,6 +104,10 @@ async def extract_image(
             "configure INFERENCE_PROVIDER; mock mode has no vision.",
         )
     _require_ai_configured(for_image=True)
+    # Validate the upload fully before touching the provider: content type;
+    # non-empty, real image bytes; and the size limit. Header-only guards are
+    # not enough — a malformed body must surface as a clean 4xx, never reach
+    # the inference path and turn into a 502.
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=415,
@@ -112,6 +116,11 @@ async def extract_image(
     image = await file.read()
     if not image:
         raise HTTPException(status_code=400, detail="empty image upload")
+    if not image.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"RIFF")):
+        raise HTTPException(
+            status_code=415,
+            detail="This file is not a valid JPEG, PNG or WebP image. Re-save or screenshot it and try again.",
+        )
     if len(image) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="image larger than 8 MB")
     try:

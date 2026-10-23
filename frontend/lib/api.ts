@@ -1,5 +1,53 @@
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
+// Every call gets a hard timeout so the UI can never strand the user on a
+// "Saving…"/"Thinking…" button with no error. Hosted vision extraction is the
+// slowest path, so the default allows for that.
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+function detailMessage(detail: unknown): string {
+  if (typeof detail === "string") return detail;
+  // FastAPI validation errors arrive as a list of objects. String()ing that
+  // list produced "[object Object]" in the UI; instead render the first
+  // problem like a human would name it.
+  if (Array.isArray(detail)) {
+    const first = detail.find((d) => typeof d === "object" && d !== null);
+    if (first && typeof first === "object") {
+      const d = first as Record<string, unknown>;
+      const loc = Array.isArray(d.loc)
+        ? (d.loc as unknown[]).filter((p) => p !== "body").join(".")
+        : "";
+      const msg = typeof d.msg === "string" ? d.msg : "";
+      if (msg) {
+        const got = d.input != null && String(d.input).length > 0 ? ` (got “${String(d.input)}”)` : "";
+        return `${loc ? `${loc}: ` : ""}${msg}${got}`;
+      }
+    }
+    return "The server rejected this request. Fix the highlighted fields and try again.";
+  }
+  return "Unexpected server response.";
+}
+
+export async function api<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<T> {
+  // AbortController: if the backend or network never answers, the promise
+  // rejects with a real message instead of hanging the button forever.
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(path, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(
+        `The request took longer than ${Math.round(timeoutMs / 1000)}s. Check the network and try again.`,
+      );
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timer);
+  }
   const text = await res.text();
   let body: unknown = null;
   try {
@@ -8,11 +56,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     body = null;
   }
   if (!res.ok) {
-    const detail =
-      body && typeof body === "object" && "detail" in body
-        ? String((body as { detail: unknown }).detail)
-        : `HTTP ${res.status}`;
-    throw new Error(detail);
+    if (body && typeof body === "object" && "detail" in body) {
+      throw new Error(detailMessage((body as { detail: unknown }).detail));
+    }
+    throw new Error(`HTTP ${res.status}`);
   }
   return body as T;
 }

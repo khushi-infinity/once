@@ -281,7 +281,7 @@ export default function TeachPage() {
       setDraft(next);
       setMode(activeMode);
     } catch (e) {
-      setError((e as Error).message);
+      setError(`Extraction failed: ${(e as Error).message}`);
     } finally {
       setBusy(null);
     }
@@ -304,22 +304,51 @@ export default function TeachPage() {
   async function save() {
     if (!draft) return;
     setError(null);
+    // Validated client-side so an empty edit can never turn into a cryptic
+    // server 422 after the teacher pressed Save. The same rules the backend
+    // enforces (name/instruction must be at least one character).
+    const emptyItem = draft.items.findIndex((item) => !item.name.trim());
+    if (emptyItem !== -1) {
+      setError(`Item ${emptyItem + 1} is empty. Give it a name or remove it, then save again.`);
+      return;
+    }
+    const emptyStep = draft.steps.findIndex((step) => !step.instruction.trim());
+    if (emptyStep !== -1) {
+      setError(
+        `Step ${emptyStep + 1} is empty. Describe it or remove it, then save again.`
+      );
+      return;
+    }
     setBusy("save");
     const source: SkillSource = mode === "voice" ? "voice" : mode === "photo" ? "photo" : "text";
     try {
-      const skill = await api<Skill>("/api/skills", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          owner_id: owner.trim() || "demo-teacher",
-          title: draft.title.trim() || "Untitled skill",
-          type: skillType,
-          source,
-          summary: draft.summary,
-          items: draft.items,
-          steps: draft.steps.map((s, index) => ({ ...s, order: index })),
-        }),
-      });
+      const skill = await api<Skill>(
+        "/api/skills",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            owner_id: owner.trim() || "demo-teacher",
+            title: draft.title.trim() || "Untitled skill",
+            type: skillType,
+            source,
+            summary: draft.summary,
+            items: draft.items.map((item) => ({
+              name: item.name.trim(),
+              required: item.required,
+              aliases: item.aliases,
+            })),
+            steps: draft.steps.map((s, index) => ({
+              order: index,
+              instruction: s.instruction.trim(),
+              target_element_id: s.target_element_id,
+              screen: s.screen,
+              expected_event: s.expected_event,
+            })),
+          }),
+        },
+        30_000 // saving is a local write; surface failures quickly
+      );
       setSaved(skill);
       setDraft(null);
       setText("");
@@ -328,7 +357,7 @@ export default function TeachPage() {
       pickFile(null);
       setNote("");
     } catch (e) {
-      setError((e as Error).message);
+      setError(`Saving failed: ${(e as Error).message}`);
     } finally {
       setBusy(null);
     }
