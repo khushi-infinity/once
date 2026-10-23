@@ -228,6 +228,20 @@ Expected: a structured draft with `engine.provider: openrouter` and
 `engine.model: google/gemini-3.8-flash`. A provider failure returns a real
 `502`, never a mock draft.
 
+Public vision check:
+
+```bash
+curl -fsS -X POST https://once-skill-memory.onrender.com/api/window/guide \
+  -F 'file=@/path/to/window.png;type=image/png' \
+  -F 'question=Where is the Export button?' \
+  -F 'app_name=Files'
+```
+
+Verified result: the answer located the blue Export button in the lower right,
+confidence `high`, engine `openrouter / google/gemini-3.8-flash`. The same
+image through `/api/teach/extract-image` returned a draft with items and steps
+plus two honest ambiguities.
+
 Render free services spin down after inactivity. Wake the app before recording
 the demo. The backend uses the least-privilege data identity through
 server-side Render environment variables; rotate those keys after the demo.
