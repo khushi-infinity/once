@@ -36,6 +36,8 @@ DYNAMODB_SESSIONS_TABLE=ONCE_Sessions
 DYNAMODB_GRANTS_TABLE=ONCE_Grants
 S3_EVIDENCE_BUCKET=once-evidence-552952091217
 CORS_ORIGINS=https://your-frontend.example.com
+MCP_ALLOWED_HOSTS=localhost:*,127.0.0.1:*,your-backend.example.com
+MCP_ALLOWED_ORIGINS=https://your-frontend.example.com
 
 INFERENCE_PROVIDER=openrouter
 INFERENCE_FALLBACK_PROVIDER=
@@ -162,6 +164,36 @@ Set `BACKEND_URL` and `MCP_URL` to the public ALB URL when building the
 frontend. Attach the backend task role policy, store the OpenRouter key in
 Secrets Manager, and put WAF rate rules in front of the ALB. This is the option
 to choose if the demo needs to stay up after the hackathon.
+
+## Option D: Render (current public demo)
+
+The public demo is deployed as two Render web services in Singapore:
+
+- `once-skill-memory-api`: FastAPI + MCP, root directory `backend`, Python
+  runtime, health check `/health`.
+- `once-skill-memory`: Next.js frontend, root directory `frontend`, Node
+  runtime, health check `/health`.
+
+Public URLs:
+
+- App: `https://once-skill-memory.onrender.com`
+- API and MCP: `https://once-skill-memory-api.onrender.com`
+
+Render builds from `https://github.com/khushi-infinity/once` on `main`. The
+backend uses the existing least-privilege `once-local` data-only IAM identity
+for DynamoDB and S3. Those keys live only in Render's server-side environment
+variables, never in the repo or the frontend. This is a hackathon tradeoff:
+rotate the keys after the demo and move to a role or OIDC-based credential path
+for a long-lived deployment.
+
+Both services are on the free plan, so they spin down after inactivity and the
+first request after a pause is slow. The demo video should wake both services
+before recording. For an always-on deployment, use Option A or C.
+
+Set the backend `MCP_ALLOWED_HOSTS` and `MCP_ALLOWED_ORIGINS` to the Render
+hostnames. The frontend build needs `BACKEND_URL` and `MCP_URL` set to the
+backend URL; Render exposes environment variables at build time, and Next.js
+records the rewrite destinations during the build.
 
 ## Secrets and access
 

@@ -3,17 +3,33 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mcp.server.transport_security import TransportSecuritySettings
 
 from app.config import get_settings
 from app.mcp_server import mcp
 from app.routers import health, recall, skills, teach, window_guide
+
+settings = get_settings()
+
+
+def _csv(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
 
 # Serve the MCP Streamable HTTP endpoint from the same process as the HTTP API.
 # That is what makes /alexa truthful in BOTH modes: in live mode both surfaces
 # use DynamoDB, and in mock mode they share the same in-memory store (skills,
 # share grants and learner sessions). The standalone `python -m app.mcp_server`
 # process remains available for the independent smoke client.
-mcp_http_app = mcp.streamable_http_app()
+mcp_http_app = mcp.streamable_http_app(
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=bool(
+            _csv(settings.mcp_allowed_hosts) or _csv(settings.mcp_allowed_origins)
+        ),
+        allowed_hosts=_csv(settings.mcp_allowed_hosts),
+        allowed_origins=_csv(settings.mcp_allowed_origins),
+    )
+)
 
 
 @asynccontextmanager
@@ -30,7 +46,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

@@ -28,6 +28,11 @@ class Settings(BaseSettings):
 
     # --- Backend -------------------------------------------------------------
     cors_origins: str = "http://localhost:3000"
+    # MCP Streamable HTTP host/origin allowlist. Empty values disable DNS
+    # rebinding checks (useful for a public, authless MCP endpoint); set these
+    # to the deployed host and web origin to keep the check on.
+    mcp_allowed_hosts: str = "localhost:*,127.0.0.1:*"
+    mcp_allowed_origins: str = ""
 
     # --- AI inference --------------------------------------------------------
     # Chosen explicitly, never auto-switched; surfaced in /health and every
